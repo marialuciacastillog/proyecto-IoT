@@ -1,0 +1,15 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+plans/
+terraform.exe
+
+# Credenciales
+.env
+credentials
+
+# Python
+__pycache__/
+venv/
