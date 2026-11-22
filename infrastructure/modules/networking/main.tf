@@ -1,0 +1,78 @@
+# Creación de las 4 VPCs
+resource "aws_vpc" "vpcs" {
+  for_each             = var.vpc_cidrs
+  cidr_block           = each.value
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  tags                 = { Name = "vpc-${each.key}" }
+}
+
+# Una subred en cada VPC
+resource "aws_subnet" "subnets" {
+  for_each                = var.subnet_cidrs
+  vpc_id                  = aws_vpc.vpcs[each.key].id
+  cidr_block              = each.value
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "subnet-${each.key}" }
+}
+
+# Puerta a internet de cada VPC
+resource "aws_internet_gateway" "igws" {
+  for_each = var.vpc_cidrs
+  vpc_id   = aws_vpc.vpcs[each.key].id
+  tags     = { Name = "igw-${each.key}" }
+}
+
+# Tabla de rutas: todo lo que no es de la VPC sale por la puerta a internet
+resource "aws_route_table" "routes" {
+  for_each = var.vpc_cidrs
+  vpc_id   = aws_vpc.vpcs[each.key].id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igws[each.key].id
+  }
+
+  tags = { Name = "rt-${each.key}" }
+}
+
+# Conectar cada subred con su tabla de rutas
+resource "aws_route_table_association" "routes" {
+  for_each       = var.subnet_cidrs
+  subnet_id      = aws_subnet.subnets[each.key].id
+  route_table_id = aws_route_table.routes[each.key].id
+}
+
+# Permisos de acceso (security group) de cada VPC
+resource "aws_security_group" "sgs" {
+  for_each    = var.vpc_cidrs
+  name        = "secgroup-${each.key}"
+  description = "Acceso SSH y API"
+  vpc_id      = aws_vpc.vpcs[each.key].id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "API"
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "secgroup-${each.key}" }
+}
