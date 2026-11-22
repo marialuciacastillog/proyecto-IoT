@@ -1,6 +1,19 @@
-# Persona 1 - Sincronización
+# Yopiii
+
+variable "vpc_cidrs" {
+  type        = map(string)
+  description = "Rango de IPs de cada VPC"
+}
+
+variable "subnet_cidrs" {
+  type        = map(string)
+  description = "Rango de IPs de la subred de cada VPC"
+}
+
 module "networking" {
-  source = "./modules/networking"
+  source       = "./modules/networking"
+  vpc_cidrs    = var.vpc_cidrs
+  subnet_cidrs = var.subnet_cidrs
 }
 
 module "ec2" {
@@ -9,4 +22,8 @@ module "ec2" {
 
 module "sqs_sync" {
   source = "./modules/sqs_sync"
+}
+
+output "vpc_ids" {
+  value = module.networking.vpc_ids
 }
