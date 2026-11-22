@@ -1,0 +1,16 @@
+# docker-compose.yml (En la raíz del proyecto)
+
+include:
+  # Instancia de la Bodega 1
+  - path: docker/components/wh_001/compose-warehouse.yml
+    project_directory: .
+    env_file: docker/components/wh_001/.env
+
+  # Instancia de la Bodega 2
+  - path: docker/components/wh_002/compose-warehouse.yml
+    project_directory: .
+    env_file: docker/components/wh_002/.env
+
+volumes:
+  postgres_data_WH-001:
+  postgres_data_WH-002:

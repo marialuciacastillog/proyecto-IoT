@@ -1,0 +1,51 @@
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: db_warehouse_${WH_ID}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: warehouse_db
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data_${WH_ID}:/var/lib/postgresql/data
+    networks:
+      - warehouse_net_${WH_ID} # <-- Red privada
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  warehouse_api:
+    build:
+      context: ./src/backend/app
+      dockerfile: Dockerfile
+    container_name: warehouse_api_node_${WH_ID}
+    ports:
+      - "${BE_PORT}:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres_db:5432/warehouse_db
+      - WAREHOUSE_ID=warehouse
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - warehouse_net_${WH_ID} # <-- Red privada
+
+  warehouse_frontend:
+    build:
+      context: ./src/frontend/app
+      dockerfile: Dockerfile
+    container_name: warehouse_frontend_node_${WH_ID}
+    ports:
+      - "${FE_PORT}:80"
+    environment:
+      - API_TARGET=warehouse_api:8000
+    # Mapeamos la ruta /api de forma transparente mediante Nginx para no requerir configuraciones cruzadas de puertos
+    depends_on:
+      - warehouse_api
+    networks:
+      - warehouse_net_${WH_ID} # <-- Red privada

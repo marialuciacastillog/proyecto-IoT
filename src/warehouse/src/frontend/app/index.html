@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Cloud Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>📦 Warehouse Central Node</h1>
+        <div id="health-status" class="status-badge loading">Conectando...</div>
+    </header>
+
+    <main class="dashboard-grid">
+        <!-- SECCIÓN: CREAR PRODUCTO -->
+        <section class="card">
+            <h2>Nuevo Producto</h2>
+            <form id="product-form">
+                <div class="form-group">
+                    <label for="sku">SKU (Único)</label>
+                    <input type="text" id="sku" required placeholder="Ej: PROD-1001">
+                </div>
+                <div class="form-group">
+                    <label for="name">Nombre</label>
+                    <input type="text" id="name" required placeholder="Ej: Caja de Herramientas">
+                </div>
+                <div class="form-group">
+                    <label for="category">Categoría</label>
+                    <input type="text" id="category" placeholder="Ej: Logística">
+                </div>
+                <div class="form-group">
+                    <label for="unit">Unidad</label>
+                    <input type="text" id="unit" required placeholder="Ej: UNIDADES">
+                </div>
+                <div class="form-group">
+                    <label for="description">Descripción</label>
+                    <textarea id="description" placeholder="Detalles opcionales..."></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Registrar e Inicializar</button>
+            </form>
+        </section>
+
+        <!-- SECCIÓN: MOVIMIENTOS DE INVENTARIO -->
+        <section class="card">
+            <h2>Registrar Movimiento</h2>
+            <form id="movement-form">
+                <div class="form-group">
+                    <label for="move-product-id">ID del Producto</label>
+                    <input type="number" id="move-product-id" required placeholder="Ej: 1">
+                </div>
+                <div class="form-group">
+                    <label for="move-type">Tipo de Operación</label>
+                    <select id="move-type" required>
+                        <option value="RECEIPT">RECEIPT (Entrada)</option>
+                        <option value="SHIPMENT">SHIPMENT (Salida)</option>
+                        <option value="RESERVATION">RESERVATION (Reservar)</option>
+                        <option value="RELEASE">RELEASE (Liberar Reserva)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="move-quantity">Cantidad</label>
+                    <input type="number" id="move-quantity" min="1" required placeholder="Ej: 50">
+                </div>
+                <div class="form-group">
+                    <label for="move-reference">Referencia / Guía</label>
+                    <input type="text" id="move-reference" placeholder="Ej: REF-TRK-100">
+                </div>
+                <button type="submit" class="btn-secondary">Ejecutar Transacción</button>
+            </form>
+        </section>
+
+        <!-- SECCIÓN: MONITOR DE STOCK -->
+        <section class="card wide">
+            <h2>Inventario en Tiempo Real</h2>
+            <button id="refresh-stock-btn" class="btn-small">🔄 Actualizar</button>
+            <div class="table-container">
+                <table id="stock-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>SKU</th>
+                            <th>Producto</th>
+                            <th>Disponible</th>
+                            <th>Reservado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dinámico vía JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL DE HISTORIAL -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title">Historial de Movimientos</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Mov</th>
+                            <th>Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Referencia</th>
+                            <th>Fecha (UTC)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
