@@ -26,7 +26,7 @@ services:
       - "${BE_PORT}:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@wh_001_postgres_db:5432/warehouse_db
-      - WAREHOUSE_ID=warehouse
+      - WAREHOUSE_ID=wh-001
     depends_on:
       wh_001_postgres_db:
         condition: service_healthy
@@ -43,3 +43,23 @@ services:
     # Mapeamos la ruta /api de forma transparente mediante Nginx para no requerir configuraciones cruzadas de puertos
     depends_on:
       - wh_001_warehouse_api
+
+  # Publicador: envía los eventos pendientes de esta bodega a la cola SQS
+  wh_001_publisher:
+    build:
+      context: ./src/backend/app
+      dockerfile: Dockerfile
+    container_name: publisher_${WH_ID}
+    command: python -m app.modules.sync.publisher
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@wh_001_postgres_db:5432/warehouse_db
+      - WAREHOUSE_ID=wh-001
+      - SYNC_QUEUE_URL=${SYNC_QUEUE_URL}
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ~/.aws:/root/.aws:ro
+    depends_on:
+      wh_001_postgres_db:
+        condition: service_healthy

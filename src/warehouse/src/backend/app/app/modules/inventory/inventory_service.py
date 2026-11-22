@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.modules.inventory.schemas import MovementCreate
 from app.modules.inventory.inventory_repository import InventoryRepository
+from app.modules.sync.pending import savePendingEvent
 
 class InventoryService:
     def __init__(self, db: Session):
@@ -59,6 +60,9 @@ class InventoryService:
             # 3. Aplicar mutación y registrar auditoría a través del repositorio
             self.repo.update_stock(inventory, new_qty, new_reserved)
             movement = self.repo.register_movement(movement_in.product_id, m_type, qty, movement_in.reference)
+
+            # 3.1 Guardar el evento pendiente para la central (misma transacción: o se guarda todo o nada)
+            savePendingEvent(self.db, movement_in.product_id, new_qty)
             
             # 4. Control de Transacción centralizado en el Servicio
             self.db.commit()
