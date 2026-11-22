@@ -1,4 +1,4 @@
-# Yopiii
+# Yopii- Sincronización
 
 variable "vpc_cidrs" {
   type        = map(string)
@@ -21,9 +21,14 @@ module "ec2" {
 }
 
 module "sqs_sync" {
-  source = "./modules/sqs_sync"
+  source     = "./modules/sqs_sync"
+  queue_name = "sync-queue"
 }
 
 output "vpc_ids" {
   value = module.networking.vpc_ids
+}
+
+output "sync_queue_url" {
+  value = module.sqs_sync.queue_url
 }
