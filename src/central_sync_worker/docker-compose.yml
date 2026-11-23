@@ -1,36 +1,72 @@
+
 services:
-  # Base de datos de la central: aquí vive global_inventory
+  # Base de datos central compartida
   central_postgres_db:
     image: postgres:15-alpine
     container_name: db_central
+    restart: unless-stopped
+
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: central_db
+
     ports:
       - "5440:5432"
+
     volumes:
-      # Estos .sql se ejecutan solos la primera vez que se crea la base
+      # Volumen persistente de PostgreSQL
+      - iot_central_postgres_data:/var/lib/postgresql/data
+
+      # Tablas de sincronizacion
       - ../database/global_inventory.sql:/docker-entrypoint-initdb.d/01_global_inventory.sql:ro
       - ./processed_events.sql:/docker-entrypoint-initdb.d/02_processed_events.sql:ro
+
+      # Tablas de reportes
+      - ../../reports/db/reports.sql:/docker-entrypoint-initdb.d/03_reports.sql:ro
+      - ../../reports/db/migrations/002_report_reliability.sql:/docker-entrypoint-initdb.d/04_report_reliability.sql:ro
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d central_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Worker: lee sync-queue y actualiza global_inventory
+    networks:
+      - iot-central-network
+
+  # Worker de sincronizacion de bodegas
   central_sync_worker:
     build: .
     container_name: central_sync_worker
+    restart: unless-stopped
+
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
       - SYNC_QUEUE_URL=${SYNC_QUEUE_URL}
       - AWS_PROFILE=lab1
       - AWS_DEFAULT_REGION=us-east-1
       - PYTHONUNBUFFERED=1
+
     volumes:
-      - ~/.aws:/root/.aws:ro
+      - ${HOME}/.aws:/root/.aws:ro
+
     depends_on:
       central_postgres_db:
         condition: service_healthy
+
+    networks:
+      - iot-central-network
+
+# Volumen persistente existente
+volumes:
+  iot_central_postgres_data:
+    external: true
+    name: iot_central_postgres_data
+
+# Red compartida con el sistema de reportes
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network
+
