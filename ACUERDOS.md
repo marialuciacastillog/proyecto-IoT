@@ -8,7 +8,7 @@
 ## Nombres en AWS
 - Cola de sincronización: sync-queue (y su DLQ: sync-queue-dlq)
 - Cola de reportes: reports-queue (y su DLQ: reports-queue-dlq)
-- Bucket de reportes: proyecto-iot-reportes-mlcg
+- Bucket de reportes: proyecto-iot-reportes-mlcg-2
 - Región: us-east-1
 
 ## Mensaje de sincronización (bodega -> central)
