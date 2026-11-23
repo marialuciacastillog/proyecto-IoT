@@ -1,0 +1,34 @@
+#!/bin/bash
+# Este script corre solo una vez, cuando la máquina prende por primera vez.
+# Todo lo que pasa queda guardado en /var/log/proyecto-setup.log
+exec > /var/log/proyecto-setup.log 2>&1
+set -x
+
+# 1. Instalar Docker y Git
+apt-get update -y
+apt-get install -y docker.io docker-compose-v2 git
+systemctl enable --now docker
+
+# 2. Perfil lab1: aquí usa el rol de la máquina (LabInstanceProfile), no credenciales copiadas
+export HOME=/root
+mkdir -p /root/.aws
+cat > /root/.aws/config <<'CONFIG'
+[profile lab1]
+credential_source = Ec2InstanceMetadata
+region = us-east-1
+CONFIG
+
+# 3. Bajar el proyecto
+git clone ${repo_url} /opt/proyecto
+export SYNC_QUEUE_URL="${sync_queue_url}"
+
+# 4. Levantar lo que le toca a esta máquina
+%{ if role == "central" ~}
+cd /opt/proyecto/src/central_sync_worker
+docker compose up -d --build
+%{ else ~}
+cd /opt/proyecto/src/warehouse
+docker compose -f docker/components/${wh_folder}/compose-warehouse.yml --project-directory . --env-file docker/components/${wh_folder}/.env up -d --build
+%{ endif ~}
+
+echo "LISTO: ${role}"

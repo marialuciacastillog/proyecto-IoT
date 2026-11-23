@@ -11,6 +11,12 @@ include:
     project_directory: .
     env_file: docker/components/wh_002/.env
 
+  # Instancia de la Bodega 3
+  - path: docker/components/wh_003/compose-warehouse.yml
+    project_directory: .
+    env_file: docker/components/wh_003/.env
+
 volumes:
   postgres_data_WH-001:
   postgres_data_WH-002:
+  postgres_data_WH-003:

@@ -13,3 +13,6 @@ subnet_cidrs = {
   "wh-003"  = "10.3.1.0/24"
   "central" = "10.100.1.0/24"
 }
+
+instance_type = "t3.small"
+repo_url      = "https://github.com/marialuciacastillog/proyecto-IoT.git"

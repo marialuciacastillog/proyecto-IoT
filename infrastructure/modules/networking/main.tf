@@ -60,9 +60,17 @@ resource "aws_security_group" "sgs" {
   }
 
   ingress {
-    description = "API"
+    description = "API de las bodegas (8001, 8002, 8003)"
     from_port   = 8000
-    to_port     = 8000
+    to_port     = 8010
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Frontend de las bodegas (8081, 8082, 8083)"
+    from_port   = 8080
+    to_port     = 8090
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

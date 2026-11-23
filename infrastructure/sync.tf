@@ -10,6 +10,16 @@ variable "subnet_cidrs" {
   description = "Rango de IPs de la subred de cada VPC"
 }
 
+variable "instance_type" {
+  type        = string
+  description = "Tamaño de las máquinas EC2"
+}
+
+variable "repo_url" {
+  type        = string
+  description = "Repositorio de GitHub que descargan las EC2"
+}
+
 module "networking" {
   source       = "./modules/networking"
   vpc_cidrs    = var.vpc_cidrs
@@ -17,7 +27,12 @@ module "networking" {
 }
 
 module "ec2" {
-  source = "./modules/ec2"
+  source             = "./modules/ec2"
+  subnet_ids         = module.networking.subnet_ids
+  security_group_ids = module.networking.security_group_ids
+  instance_type      = var.instance_type
+  sync_queue_url     = module.sqs_sync.queue_url
+  repo_url           = var.repo_url
 }
 
 module "sqs_sync" {
@@ -31,4 +46,8 @@ output "vpc_ids" {
 
 output "sync_queue_url" {
   value = module.sqs_sync.queue_url
+}
+
+output "ec2_public_ips" {
+  value = module.ec2.public_ips
 }
