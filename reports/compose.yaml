@@ -1,0 +1,104 @@
+
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: iot-reports-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: reports_user
+      POSTGRES_PASSWORD: reports_local_2026
+      POSTGRES_DB: central_db
+
+    ports:
+      - "127.0.0.1:5433:5432"
+
+    volumes:
+      - reports_postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U reports_user -d central_db
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: iot-reports-api
+    restart: unless-stopped
+
+    command:
+      - uvicorn
+      - api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+
+    env_file:
+      - .env.docker
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  publisher:
+    build: .
+    container_name: iot-reports-publisher
+    restart: unless-stopped
+
+    command:
+      - python
+      - -m
+      - api.publisher
+
+    env_file:
+      - .env.docker
+
+    environment:
+      AWS_PROFILE: lab1
+      AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
+      AWS_CONFIG_FILE: /root/.aws/config
+
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    container_name: iot-reports-worker
+    restart: unless-stopped
+
+    command:
+      - python
+      - -m
+      - worker.main
+
+    env_file:
+      - .env.docker
+
+    environment:
+      AWS_PROFILE: lab1
+      AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
+      AWS_CONFIG_FILE: /root/.aws/config
+
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  reports_postgres_data:
+
