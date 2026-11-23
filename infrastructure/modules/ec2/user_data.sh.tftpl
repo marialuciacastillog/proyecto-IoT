@@ -24,7 +24,14 @@ export SYNC_QUEUE_URL="${sync_queue_url}"
 
 # 4. Levantar lo que le toca a esta máquina
 %{ if role == "central" ~}
+# 4.1 Primero la central (base de datos + worker): crea la red y el volumen
 cd /opt/proyecto/src/central_sync_worker
+docker compose up -d --build
+
+# 4.2 Después los reportes, que usan la red de la central
+export REPORTS_QUEUE_URL="${reports_queue_url}"
+export REPORTS_BUCKET_NAME="${reports_bucket_name}"
+cd /opt/proyecto/reports
 docker compose up -d --build
 %{ else ~}
 cd /opt/proyecto/src/warehouse

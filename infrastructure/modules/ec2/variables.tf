@@ -22,3 +22,13 @@ variable "repo_url" {
   type        = string
   description = "Repositorio de GitHub que cada máquina descarga al prender"
 }
+
+variable "reports_queue_url" {
+  type        = string
+  description = "URL de la cola reports-queue"
+}
+
+variable "reports_bucket_name" {
+  type        = string
+  description = "Bucket donde se guardan los reportes"
+}

@@ -58,15 +58,14 @@ services:
     networks:
       - iot-central-network
 
-# Volumen persistente existente
+# Volumen persistente: Docker lo crea solo la primera vez
 volumes:
   iot_central_postgres_data:
-    external: true
     name: iot_central_postgres_data
 
-# Red compartida con el sistema de reportes
+# Red compartida con el sistema de reportes: Docker la crea sola.
+# Por eso la central se prende ANTES que los reportes.
 networks:
   iot-central-network:
-    external: true
     name: iot-central-network
 

@@ -32,10 +32,12 @@ resource "aws_instance" "servers" {
 
   # Script que corre solo una vez, al prender: instala Docker, baja el repo y levanta los contenedores
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    role           = each.key
-    wh_folder      = replace(each.key, "-", "_")
-    sync_queue_url = var.sync_queue_url
-    repo_url       = var.repo_url
+    role                = each.key
+    wh_folder           = replace(each.key, "-", "_")
+    sync_queue_url      = var.sync_queue_url
+    repo_url            = var.repo_url
+    reports_queue_url   = var.reports_queue_url
+    reports_bucket_name = var.reports_bucket_name
   })
   user_data_replace_on_change = true
 

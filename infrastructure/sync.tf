@@ -27,12 +27,14 @@ module "networking" {
 }
 
 module "ec2" {
-  source             = "./modules/ec2"
-  subnet_ids         = module.networking.subnet_ids
-  security_group_ids = module.networking.security_group_ids
-  instance_type      = var.instance_type
-  sync_queue_url     = module.sqs_sync.queue_url
-  repo_url           = var.repo_url
+  source              = "./modules/ec2"
+  subnet_ids          = module.networking.subnet_ids
+  security_group_ids  = module.networking.security_group_ids
+  instance_type       = var.instance_type
+  sync_queue_url      = module.sqs_sync.queue_url
+  repo_url            = var.repo_url
+  reports_queue_url   = module.sqs_reports.queue_url
+  reports_bucket_name = module.s3_reports.bucket_name
 }
 
 module "sqs_sync" {

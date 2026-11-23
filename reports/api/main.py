@@ -120,3 +120,41 @@ def get_report_status(job_id: uuid.UUID):
 
     return job
 
+
+
+# Fase 7: inventario consolidado de un producto en todas las bodegas.
+# Lee global_inventory, que llena el worker de sincronización.
+@app.get("/global/inventory/{product_id}")
+def get_global_inventory(product_id: str):
+    try:
+        with psycopg.connect(
+            DATABASE_URL,
+            row_factory=dict_row
+        ) as conn:
+            rows = conn.execute(
+                """
+                SELECT warehouse_id, quantity, updated_at
+                FROM global_inventory
+                WHERE product_id = %s
+                ORDER BY warehouse_id
+                """,
+                (product_id,)
+            ).fetchall()
+
+    except psycopg.Error:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable"
+        )
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found in any warehouse"
+        )
+
+    return {
+        "product_id": product_id,
+        "total_quantity": sum(row["quantity"] for row in rows),
+        "warehouses": rows
+    }

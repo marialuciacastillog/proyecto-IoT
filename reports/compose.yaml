@@ -14,11 +14,11 @@ services:
       - --port
       - "8000"
 
-    env_file:
-      - .env.docker
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@central_postgres_db:5432/central_db
 
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
 
     networks:
       - iot-central-network
@@ -34,10 +34,12 @@ services:
       - -m
       - api.publisher
 
-    env_file:
-      - .env.docker
-
     environment:
+      DATABASE_URL: postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      REPORTS_QUEUE_URL: ${REPORTS_QUEUE_URL}
+      REPORTS_BUCKET_NAME: ${REPORTS_BUCKET_NAME}
+      REPORTS_VISIBILITY_SECONDS: "120"
+      AWS_DEFAULT_REGION: us-east-1
       AWS_PROFILE: lab1
       AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
       AWS_CONFIG_FILE: /root/.aws/config
@@ -59,10 +61,12 @@ services:
       - -m
       - worker.main
 
-    env_file:
-      - .env.docker
-
     environment:
+      DATABASE_URL: postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      REPORTS_QUEUE_URL: ${REPORTS_QUEUE_URL}
+      REPORTS_BUCKET_NAME: ${REPORTS_BUCKET_NAME}
+      REPORTS_VISIBILITY_SECONDS: "120"
+      AWS_DEFAULT_REGION: us-east-1
       AWS_PROFILE: lab1
       AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
       AWS_CONFIG_FILE: /root/.aws/config
