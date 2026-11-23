@@ -1,17 +1,5 @@
-resource "aws_s3_bucket" "reports" {
-  bucket = var.bucket_name
-
-  tags = {
-    Name    = "proyect-iot-reports"
-    Service = "reports"
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "reports" {
-  bucket = aws_s3_bucket.reports.id
-
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
-}
+# El Learner Lab bloquea que Terraform lea algunas configuraciones de los buckets
+# (s3:GetBucketObjectLockConfiguration), así que el bucket se crea una sola vez con:
+#   aws s3 mb s3://proyecto-iot-reportes-mlcg-2
+# y este módulo solo entrega su nombre a los demás.
+# Los buckets nuevos de S3 ya vienen privados (sin acceso público) por defecto.
