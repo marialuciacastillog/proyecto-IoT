@@ -1,4 +1,3 @@
-# Persona 2 - Reportes
 module "sqs_reports" {
   source = "./modules/sqs_reports"
 }
