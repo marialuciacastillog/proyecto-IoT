@@ -1,31 +1,6 @@
 
 services:
-
-  postgres:
-    image: postgres:16
-    container_name: iot-reports-postgres
-    restart: unless-stopped
-
-    environment:
-      POSTGRES_USER: reports_user
-      POSTGRES_PASSWORD: reports_local_2026
-      POSTGRES_DB: central_db
-
-    ports:
-      - "127.0.0.1:5433:5432"
-
-    volumes:
-      - reports_postgres_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U reports_user -d central_db
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
+  # API de reportes
   api:
     build: .
     container_name: iot-reports-api
@@ -45,10 +20,10 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
-    depends_on:
-      postgres:
-        condition: service_healthy
+    networks:
+      - iot-central-network
 
+  # Publicador de solicitudes a SQS
   publisher:
     build: .
     container_name: iot-reports-publisher
@@ -70,10 +45,10 @@ services:
     volumes:
       - ${HOME}/.aws:/root/.aws:ro
 
-    depends_on:
-      postgres:
-        condition: service_healthy
+    networks:
+      - iot-central-network
 
+  # Worker que genera CSV y los guarda en S3
   worker:
     build: .
     container_name: iot-reports-worker
@@ -95,10 +70,11 @@ services:
     volumes:
       - ${HOME}/.aws:/root/.aws:ro
 
-    depends_on:
-      postgres:
-        condition: service_healthy
+    networks:
+      - iot-central-network
 
-volumes:
-  reports_postgres_data:
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network
 
