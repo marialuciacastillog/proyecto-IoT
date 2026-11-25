@@ -1,4 +1,6 @@
 #!/bin/bash
+# Nota: los datos que se mandan con curl van sin tildes. En Git Bash de Windows curl recibe los textos
+# con la codificación de Windows (no UTF-8) y la API no puede leer el JSON. Desde el navegador no pasa.
 # Etapa A - Prueba de usuarios, login y permisos por rol en AWS.
 # Crea 4 usuarios (uno por rol) y prueba lo que cada uno puede y no puede hacer.
 # Uso (desde la carpeta del proyecto, una vez por despliegue):
@@ -38,10 +40,10 @@ check "el Administrador Global lista usuarios" 200 $(code $ID/users -H "$A")
 echo "--- Bodega wh-001"
 check "sin token" 401 $(code $WH/products)
 check "token inventado" 401 $(code $WH/products -H "Authorization: Bearer token.falso.123")
-check "el Encargado crea un producto en el catálogo" 403 $(code -X POST $C:8007/products -H "$E1" -H "$J" -d '{"product_code":"P-009","name":"Tornillo","category":"Ferretería","supplier":"Aceros SAS","cost":1,"sale_price":2,"wholesale_price":1}')
+check "el Encargado crea un producto en el catálogo" 403 $(code -X POST $C:8007/products -H "$E1" -H "$J" -d '{"product_code":"P-009","name":"Tornillo","category":"Ferreteria","supplier":"Aceros SAS","cost":1,"sale_price":2,"wholesale_price":1}')
 # Etapa B: el producto se crea en el catálogo de la central y el Admin por Bodega lo agrega a su bodega
 CAT=$C:8007
-check "el Admin Global crea P-001 en el catálogo" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-001","name":"Tornillo","category":"Ferretería","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":130,"initial_quantity":0}')
+check "el Admin Global crea P-001 en el catálogo" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-001","name":"Tornillo","category":"Ferreteria","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":130,"initial_quantity":0}')
 check "el Encargado intenta agregar P-001 a la bodega" 403 $(code -X POST $CAT/warehouses/wh-001/products -H "$E1" -H "$J" -d '{"product_code":"P-001"}')
 check "el Admin por Bodega agrega P-001 a su bodega" "202|409" $(code -X POST $CAT/warehouses/wh-001/products -H "$AB" -H "$J" -d '{"product_code":"P-001","initial_quantity":0}')
 echo "     esperando a que el producto llegue a la bodega..."; sleep 12

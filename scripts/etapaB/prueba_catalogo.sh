@@ -1,4 +1,6 @@
 #!/bin/bash
+# Nota: los datos que se mandan con curl van sin tildes. En Git Bash de Windows curl recibe los textos
+# con la codificación de Windows (no UTF-8) y la API no puede leer el JSON. Desde el navegador no pasa.
 # Etapa B - Prueba de bodegas y catálogo global en AWS.
 # Uso (desde la carpeta del proyecto, después de bash scripts/etapaA/prueba_roles.sh):
 #   bash scripts/etapaB/prueba_catalogo.sh | tee evidencias/etapaB/prueba_catalogo.txt
@@ -17,16 +19,16 @@ curl -s -o /dev/null -X POST $ID/users -H "$A" -H "$J" -d '{"username":"juli.enc
 AB="Authorization: Bearer $(login ana.bodega1 Bodega2026)"; E1="Authorization: Bearer $(login juli.encargada1 Encargo2026)"
 echo "--- Bodegas (RF-02, RF-03)"
 check "las 3 bodegas iniciales" 200 $(code $CAT/warehouses -H "$E1"); echo "     $(grep -o '"warehouse_id":"[^"]*"' /tmp/body | tr '\n' ' ')"
-check "NIT con dígito de verificación malo" 400 $(code -X POST $CAT/warehouses -H "$A" -H "$J" -d '{"warehouse_id":"wh-004","nit":"900456789-0","name":"Bodega Oriente","location":"Cali - Oriente","manager_name":"Laura Gómez"}')
-check "crear bodega wh-004" "201|409" $(code -X POST $CAT/warehouses -H "$A" -H "$J" -d '{"warehouse_id":"wh-004","nit":"900.456.789-4","name":"Bodega Oriente","location":"Cali - Oriente","description":"Nueva bodega","manager_name":"Laura Gómez"}')
+check "NIT con dígito de verificación malo" 400 $(code -X POST $CAT/warehouses -H "$A" -H "$J" -d '{"warehouse_id":"wh-004","nit":"900456789-0","name":"Bodega Oriente","location":"Cali - Oriente","manager_name":"Laura Gomez"}')
+check "crear bodega wh-004" "201|409" $(code -X POST $CAT/warehouses -H "$A" -H "$J" -d '{"warehouse_id":"wh-004","nit":"900.456.789-4","name":"Bodega Oriente","location":"Cali - Oriente","description":"Nueva bodega","manager_name":"Laura Gomez"}')
 echo "     NIT guardado: $(grep -o '"nit":"[^"]*"' /tmp/body)"
 check "NIT repetido" 409 $(code -X POST $CAT/warehouses -H "$A" -H "$J" -d '{"warehouse_id":"wh-005","nit":"900456789-4","name":"Otra","location":"Cali","manager_name":"Alguien"}')
 check "admin bodega crea bodega" 403 $(code -X POST $CAT/warehouses -H "$AB" -H "$J" -d '{"warehouse_id":"wh-006","nit":"900123456-8","name":"X","location":"Cali","manager_name":"Alguien"}')
 check "editar encargado de wh-001" 200 $(code -X PATCH $CAT/warehouses/wh-001 -H "$A" -H "$J" -d '{"manager_name":"Ana Admin WH1","manager_username":"ana.bodega1"}')
 echo "--- Catálogo (RF-04)"
-check "precio mayorista mayor que el de venta" 400 $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-001","name":"Tornillo","category":"Ferretería","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":200,"initial_quantity":50}')
-check "crear producto P-001" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"p-001","name":"Tornillo 1/4","category":"Ferretería","description":"Tornillo de acero","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":130,"initial_quantity":50}')
-check "crear producto P-002" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-002","name":"Tuerca","category":"Ferretería","supplier":"Aceros SAS","cost":50,"sale_price":80,"wholesale_price":70,"initial_quantity":0}')
+check "precio mayorista mayor que el de venta" 400 $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-001","name":"Tornillo","category":"Ferreteria","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":200,"initial_quantity":50}')
+check "crear producto P-001" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"p-001","name":"Tornillo 1/4","category":"Ferreteria","description":"Tornillo de acero","supplier":"Aceros SAS","cost":100,"sale_price":150,"wholesale_price":130,"initial_quantity":50}')
+check "crear producto P-002" "201|409" $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-002","name":"Tuerca","category":"Ferreteria","supplier":"Aceros SAS","cost":50,"sale_price":80,"wholesale_price":70,"initial_quantity":0}')
 check "código repetido" 409 $(code -X POST $CAT/products -H "$A" -H "$J" -d '{"product_code":"P-001","name":"Otro","category":"Varios","supplier":"Otro SAS","cost":1,"sale_price":2,"wholesale_price":1}')
 check "admin bodega crea producto" 403 $(code -X POST $CAT/products -H "$AB" -H "$J" -d '{"product_code":"P-009","name":"X","category":"X","supplier":"Y","cost":1,"sale_price":2,"wholesale_price":1}')
 check "encargado ve el catálogo" 200 $(code $CAT/products -H "$E1")
@@ -45,7 +47,7 @@ check "admin global cambia el precio de P-001" 200 $(code -X PATCH $CAT/products
 sleep 8; curl -s $WH/products/1 -H "$E1" | grep -o '"sale_price":"[^"]*","wholesale_price":"[^"]*"' | sed 's/^/     en la bodega: /'
 echo "--- Registro de bodegas en usuarios y transferencias"
 check "usuario para bodega no registrada wh-009" 400 $(code -X POST $ID/users -H "$A" -H "$J" -d '{"username":"x.nueve","password":"Encargo2026","full_name":"Nadie","role":"ENCARGADO","warehouse_id":"wh-009"}'); echo "     $(cat /tmp/body)"
-check "usuario para wh-004 (registrada)" 201 $(code -X POST $ID/users -H "$A" -H "$J" -d '{"username":"laura.bodega4","password":"Bodega2026","full_name":"Laura Gómez","role":"ADMIN_BODEGA","warehouse_id":"wh-004"}')
+check "usuario para wh-004 (registrada)" 201 $(code -X POST $ID/users -H "$A" -H "$J" -d '{"username":"laura.bodega4","password":"Bodega2026","full_name":"Laura Gomez","role":"ADMIN_BODEGA","warehouse_id":"wh-004"}')
 L4="Authorization: Bearer $(login laura.bodega4 Bodega2026)"
 check "laura agrega P-002 a wh-004" 202 $(code -X POST $CAT/warehouses/wh-004/products -H "$L4" -H "$J" -d '{"product_code":"P-002","initial_quantity":5}')
 check "transferencia hacia wh-004" 202 $(code -X POST $TR/transfers -H "$AB" -H "$J" -d '{"source_warehouse":"wh-001","destination_warehouse":"wh-004","product_id":"P-001","quantity":1}')

@@ -4,7 +4,8 @@
 # Uso (desde la carpeta del proyecto):  bash scripts/fase12/metricas_iot.sh
 
 KEY=~/Downloads/labsuser.pem
-SSHOPT="-i $KEY -o StrictHostKeyChecking=no -o LogLevel=ERROR"
+# UserKnownHostsFile=/dev/null: no se guarda la llave de la máquina, porque cambia cada vez que se recrea
+SSHOPT="-i $KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
 SQL="sudo docker exec db_central psql -U postgres -d central_db -c"
