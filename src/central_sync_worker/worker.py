@@ -18,6 +18,22 @@ saveInventorySql = """
     WHERE global_inventory.updated_at < EXCLUDED.updated_at
 """
 
+# Fase 8: historial de lo que llega de las bodegas. El proceso Batch lee de aquí.
+createHistorySql = """
+    CREATE TABLE IF NOT EXISTS sync_history (
+        event_id     VARCHAR(64) PRIMARY KEY,
+        warehouse_id VARCHAR(20) NOT NULL,
+        product_id   VARCHAR(50) NOT NULL,
+        quantity     INTEGER NOT NULL,
+        created_at   TIMESTAMP NOT NULL
+    )
+"""
+
+saveHistorySql = """
+    INSERT INTO sync_history (event_id, warehouse_id, product_id, quantity, created_at)
+    VALUES (%s, %s, %s, %s, %s)
+"""
+
 saveProcessedSql = """
     INSERT INTO processed_events (event_id) VALUES (%s)
     ON CONFLICT (event_id) DO NOTHING
@@ -39,12 +55,19 @@ def connectDatabase():
 #   "GUARDADO" -> era nuevo y se actualizó global_inventory
 #   "VIEJO"    -> era nuevo, pero ya había un dato más reciente, así que no se cambia la cantidad
 #   "REPETIDO" -> ya se había procesado antes
-# Las dos tablas se guardan en la misma transacción: o se guarda todo o nada.
+# Todo se guarda en la misma transacción: o se guarda todo o nada.
 def applyEvent(connection, event):
     result = "REPETIDO"
     with connection.cursor() as cursor:
         cursor.execute(saveProcessedSql, (event["eventId"],))
         if cursor.rowcount == 1:
+            cursor.execute(saveHistorySql, (
+                event["eventId"],
+                event["warehouseId"],
+                event["productId"],
+                event["quantity"],
+                event["createdAt"]
+            ))
             cursor.execute(saveInventorySql, (
                 event["warehouseId"],
                 event["productId"],
@@ -75,6 +98,9 @@ def processMessage(connection, sqsClient, message):
 
 def main():
     connection = connectDatabase()
+    with connection.cursor() as cursor:
+        cursor.execute(createHistorySql)
+    connection.commit()
     sqsClient = boto3.client("sqs", region_name=awsRegion)
     print("Worker de sincronización iniciado")
     while True:

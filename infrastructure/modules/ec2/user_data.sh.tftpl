@@ -37,6 +37,16 @@ docker compose up -d --build
 # 4.3 Fase 6: transferencias entre bodegas (API en el puerto 8010 + orquestador)
 cd /opt/proyecto/src/central_transfers
 docker compose up -d --build
+
+# 4.4 Fase 8: proceso Batch. Se deja construido y programado con cron
+# todos los días a las 23:00 (hora del servidor, que está en UTC)
+cd /opt/proyecto/src/central_batch
+echo "REPORTS_BUCKET_NAME=${reports_bucket_name}" > .env
+docker compose build
+cat > /etc/cron.d/proyecto-batch <<'CRON'
+HOME=/root
+0 23 * * * root cd /opt/proyecto/src/central_batch && docker compose run --rm batch >> /var/log/proyecto-batch.log 2>&1
+CRON
 %{ else ~}
 cd /opt/proyecto/src/warehouse
 docker compose -f docker/components/${wh_folder}/compose-warehouse.yml --project-directory . --env-file docker/components/${wh_folder}/.env up -d --build

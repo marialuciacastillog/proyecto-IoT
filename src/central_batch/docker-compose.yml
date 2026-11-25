@@ -1,0 +1,22 @@
+# Fase 8: proceso Batch. No se queda prendido: corre, genera el reporte y se apaga.
+# Se lanza con:  docker compose run --rm batch            (hoy)
+#                docker compose run --rm batch 2026-11-25 (un día puntual)
+# Usa la base y la red de la central, así que la central debe estar prendida.
+services:
+  batch:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      - REPORTS_BUCKET_NAME=${REPORTS_BUCKET_NAME}
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+    networks:
+      - iot-central-network
+
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network
