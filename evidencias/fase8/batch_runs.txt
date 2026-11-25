@@ -1,0 +1,7 @@
+ id |  run_date  | status  | warehouses | files |                  error                   
+----+------------+---------+------------+-------+------------------------------------------
+  1 | 2026-11-25 | SUCCESS |          3 |     4 | 
+  2 | 2026-11-25 | FAILED  |            |       | An error occurred (NoSuchBucket) when ca
+  3 | 2026-11-25 | SUCCESS |          3 |     4 | 
+(3 rows)
+

@@ -1,0 +1,4 @@
+2026-11-25 05:27:18        469 warehouse-platform/reports/2026/11/daily-2026-11-25.json
+2026-11-25 05:27:18        350 warehouse-platform/warehouses/wh-001/2026/11/inventory-2026-11-25.json
+2026-11-25 05:27:18        259 warehouse-platform/warehouses/wh-002/2026/11/inventory-2026-11-25.json
+2026-11-25 05:27:18        259 warehouse-platform/warehouses/wh-003/2026/11/inventory-2026-11-25.json

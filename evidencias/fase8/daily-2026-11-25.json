@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-25",
+  "generatedAt": "2026-11-25T10:27:17.459249+00:00",
+  "runId": 3,
+  "totalUnits": 98,
+  "warehouses": [
+    {
+      "warehouseId": "wh-001",
+      "totalUnits": 28,
+      "changesToday": 2
+    },
+    {
+      "warehouseId": "wh-002",
+      "totalUnits": 30,
+      "changesToday": 1
+    },
+    {
+      "warehouseId": "wh-003",
+      "totalUnits": 40,
+      "changesToday": 1
+    }
+  ],
+  "productTotals": {
+    "P-001": 90,
+    "P-002": 8
+  }
+}
