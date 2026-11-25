@@ -1,0 +1,99 @@
+
+Summary:
+  Total:	23.3592 secs
+  Slowest:	19.9323 secs
+  Fastest:	0.0012 secs
+  Average:	11.3586 secs
+  Requests/sec:	45.2071
+  
+  Total data:	1028 bytes
+  Size/request:	93 bytes
+
+Response time histogram:
+  0.001 [1]	|■■■■■■■■■■
+  1.994 [1]	|■■■■■■■■■■
+  3.987 [1]	|■■■■■■■■■■
+  5.981 [0]	|
+  7.974 [0]	|
+  9.967 [2]	|■■■■■■■■■■■■■■■■■■■■
+  11.960 [0]	|
+  13.953 [0]	|
+  15.946 [2]	|■■■■■■■■■■■■■■■■■■■■
+  17.939 [0]	|
+  19.932 [4]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+
+Latency distribution:
+  10% in 2.7323 secs
+  25% in 9.0124 secs
+  50% in 14.3281 secs
+  75% in 18.5487 secs
+  90% in 19.9323 secs
+  0% in 0.0000 secs
+  0% in 0.0000 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0450 secs, 0.0012 secs, 19.9323 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0025 secs, 0.0000 secs, 0.0090 secs
+  resp wait:	11.3110 secs, 0.0006 secs, 19.8627 secs
+  resp read:	0.0001 secs, 0.0001 secs, 0.0001 secs
+
+Status code distribution:
+  [200]	5 responses
+  [500]	6 responses
+
+Error distribution:
+  [994]	Get http://100.29.38.223:8002/inventory/1: net/http: request canceled (Client.Timeout exceeded while awaiting headers)
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:55790->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:55804->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56008->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56022->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56040->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56138->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56164->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56174->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56256->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56712->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56716->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56740->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56742->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56750->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56764->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56774->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56788->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56798->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56802->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56812->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56826->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56952->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56976->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56984->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56988->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:56998->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57018->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57034->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57712->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57720->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57728->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57734->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57736->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57742->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57746->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57754->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57756->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57758->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57764->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57768->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57792->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57794->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57798->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57806->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57828->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57830->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57848->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57862->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57872->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57880->100.29.38.223:8002: read: connection reset by peer
+  [1]	Get http://100.29.38.223:8002/inventory/1: read tcp 172.17.0.2:57990->100.29.38.223:8002: read: connection reset by peer
+

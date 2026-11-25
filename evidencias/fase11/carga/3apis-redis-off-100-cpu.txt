@@ -1,0 +1,9 @@
+warehouse-wh_002_warehouse_api-2 54.63%
+warehouse-wh_002_warehouse_api-3 55.15%
+warehouse-wh_002_warehouse_api-1 53.64%
+warehouse_frontend_node_WH-002 0.00%
+lb_WH-002 5.20%
+publisher_WH-002 0.00%
+transfer_worker_WH-002 0.00%
+db_warehouse_WH-002 19.53%
+redis_WH-002 1.65%

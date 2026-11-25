@@ -1,0 +1,45 @@
+===== API WH-001 (calculado con los logs JSON de los últimos 5 minutos) =====
+Peticiones: 203
+Latencia  P50: 9.98 ms | P95: 14.43 ms | P99: 23.27 ms
+Error rate (5xx): 0.00% (0 de 203)
+
+===== Redis WH-001 =====
+keyspace_hits:0
+keyspace_misses:100
+used_memory_human:1.11M
+Estadísticas de la API: {"warehouse_id":"wh-001","cache_enabled":true,"hits":0,"misses":100,"hit_ratio":0.0,"redis_ok":true}
+
+===== Colas (SQS) =====
+sync-queue -> esperando / en proceso: 0	0
+sync-queue-dlq -> esperando / en proceso: 4	0
+audit-queue -> esperando / en proceso: 0	0
+audit-queue-dlq -> esperando / en proceso: 0	0
+sync-queue procesados en 15 min (CloudWatch): 85.0
+Reintentos en el worker de sincronización: 0
+
+===== Base de datos WH-001 =====
+ state  | conexiones 
+--------+------------
+ active |          1
+ idle   |          3
+(2 rows)
+
+      mode       | locks 
+-----------------+-------
+ ExclusiveLock   |     1
+ AccessShareLock |     1
+(2 rows)
+
+                                             QUERY PLAN                                             
+----------------------------------------------------------------------------------------------------
+ Execution Time: 0.066 ms
+(4 rows)
+
+
+===== Base de datos central =====
+ state  | conexiones 
+--------+------------
+ active |          1
+ idle   |          3
+(2 rows)
+
