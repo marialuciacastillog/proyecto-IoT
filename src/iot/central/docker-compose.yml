@@ -1,0 +1,43 @@
+# Fase 12: parte IoT de la central. Usa la base y la red de la central,
+# así que se prende DESPUÉS de src/central_sync_worker.
+x-worker: &worker
+  build: .
+  restart: unless-stopped
+  environment:
+    - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+    - AWS_PROFILE=lab1
+    - AWS_DEFAULT_REGION=us-east-1
+    - PYTHONUNBUFFERED=1
+  volumes:
+    - ${HOME}/.aws:/root/.aws:ro
+  networks:
+    - iot-central-network
+
+services:
+  # Recibe los lotes de los gateways (puerto 8005) y los publica en SNS iot-events
+  iot_ingestion:
+    <<: *worker
+    container_name: iot_ingestion
+    command: uvicorn ingestion:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8005:8000"
+
+  iot_storage:
+    <<: *worker
+    container_name: iot_storage_worker
+    command: python workers.py storage
+
+  iot_alerts:
+    <<: *worker
+    container_name: iot_alerts_worker
+    command: python workers.py alerts
+
+  iot_analytics:
+    <<: *worker
+    container_name: iot_analytics_worker
+    command: python workers.py analytics
+
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network

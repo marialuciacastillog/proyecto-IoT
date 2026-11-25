@@ -1,0 +1,47 @@
+# Fase 12: borde (edge) IoT de la bodega: broker MQTT + sensores simulados + gateway.
+# IOT_WAREHOUSES dice qué bodegas simula esta máquina (por ejemplo "WH-003,WH-004,WH-005").
+services:
+  mqtt_broker:
+    image: eclipse-mosquitto:2
+    container_name: iot_mqtt_broker
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - iot_mqtt_data:/mosquitto/data
+
+  sensors:
+    build: .
+    container_name: iot_sensors
+    restart: unless-stopped
+    command: python simulator.py
+    environment:
+      - MQTT_HOST=mqtt_broker
+      - IOT_WAREHOUSES=${IOT_WAREHOUSES:-WH-001}
+      - SENSOR_INTERVAL=${SENSOR_INTERVAL:-2}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqtt_broker
+
+  gateway:
+    build: .
+    container_name: iot_gateway
+    restart: unless-stopped
+    command: python gateway.py
+    environment:
+      - MQTT_HOST=mqtt_broker
+      - IOT_WAREHOUSES=${IOT_WAREHOUSES:-WH-001}
+      - INGEST_URL=${INGEST_URL:-}
+      - BUFFER_PATH=/data/buffer.db
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - iot_gateway_buffer:/data
+      - ${HOME}/.aws:/root/.aws:ro
+    depends_on:
+      - mqtt_broker
+
+# El buffer está en un volumen: si el gateway se reinicia, no se pierde lo que estaba esperando
+volumes:
+  iot_mqtt_data:
+  iot_gateway_buffer:

@@ -39,7 +39,7 @@ module "ec2" {
   audit_queue_url     = module.sns_events.audit_queue_url
 
   # Las suscripciones de SNS deben existir antes de que las bodegas empiecen a publicar
-  depends_on = [module.sns_events]
+  depends_on = [module.sns_events, module.iot_events]
 }
 
 module "sqs_sync" {

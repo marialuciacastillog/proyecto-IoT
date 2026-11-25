@@ -44,7 +44,11 @@ docker compose up -d --build
 cd /opt/proyecto/src/central_transfers
 docker compose up -d --build
 
-# 4.4 Fase 8: proceso Batch. Se deja construido y programado con cron
+# 4.4 Fase 12: IoT en la central (ingesta en el puerto 8005 + workers storage, alerts y analytics)
+cd /opt/proyecto/src/iot/central
+docker compose up -d --build
+
+# 4.5 Fase 8: proceso Batch. Se deja construido y programado con cron
 # todos los días a las 23:00 (hora del servidor, que está en UTC)
 cd /opt/proyecto/src/central_batch
 echo "REPORTS_BUCKET_NAME=${reports_bucket_name}" > .env
@@ -56,6 +60,12 @@ CRON
 %{ else ~}
 cd /opt/proyecto/src/warehouse
 docker compose -f docker/components/${wh_folder}/compose-warehouse.yml --project-directory . --env-file docker/components/${wh_folder}/.env up -d --build
+
+# Fase 12: borde IoT (broker MQTT + sensores simulados + gateway).
+# La máquina de wh-003 simula también WH-004 y WH-005: en total 5 bodegas y 100 sensores.
+export IOT_WAREHOUSES="${role == "wh-003" ? "WH-003,WH-004,WH-005" : upper(role)}"
+cd /opt/proyecto/src/iot/edge
+docker compose up -d --build
 %{ endif ~}
 
 echo "LISTO: ${role}"
