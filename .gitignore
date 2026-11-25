@@ -8,3 +8,4 @@ terraform.exe
 credentials
 __pycache__/
 venv/
+*.zip
