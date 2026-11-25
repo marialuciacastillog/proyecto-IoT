@@ -86,7 +86,7 @@ def isTimedOut(transfer):
 
 
 def markSent(cursor, transfer, expiresAt):
-    cursor.execute("UPDATE transfers SET step_sent_at = NOW(), expires_at = %s WHERE transfer_id = %s",
+    cursor.execute("UPDATE transfers SET step_sent_at = clock_timestamp(), expires_at = %s WHERE transfer_id = %s",
                    (expiresAt, transfer["transfer_id"]))
 
 
@@ -131,6 +131,8 @@ def driveTransfers(connection, sqsClient):
             """SELECT * FROM transfers WHERE status IN ('REQUESTED', 'RESERVING_SOURCE', 'SOURCE_RESERVED',
                'IN_TRANSIT', 'DESTINATION_RECEIVED', 'COMPENSATING') ORDER BY created_at""")
         pending = cursor.fetchall()
+    # Se cierra la consulta para no dejar una transacción abierta
+    connection.commit()
     for transfer in pending:
         try:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:

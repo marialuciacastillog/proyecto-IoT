@@ -45,13 +45,14 @@ def connectDatabase():
     return connection
 
 
-# Cambia el estado de la transferencia y lo anota en el historial
+# Cambia el estado de la transferencia y lo anota en el historial.
+# clock_timestamp() es la hora real; NOW() sería la hora en que empezó la transacción.
 def changeStatus(cursor, transferId, newStatus, reason=""):
     cursor.execute(
-        """UPDATE transfers SET status = %s, reason = %s, step_started_at = NOW(),
-           step_sent_at = NULL, updated_at = NOW() WHERE transfer_id = %s""",
+        """UPDATE transfers SET status = %s, reason = %s, step_started_at = clock_timestamp(),
+           step_sent_at = NULL, updated_at = clock_timestamp() WHERE transfer_id = %s""",
         (newStatus, reason, transferId))
     cursor.execute(
-        "INSERT INTO transfer_history (transfer_id, status, reason) VALUES (%s, %s, %s)",
+        "INSERT INTO transfer_history (transfer_id, status, reason, created_at) VALUES (%s, %s, %s, clock_timestamp())",
         (transferId, newStatus, reason))
     print("Transferencia", transferId, "->", newStatus, reason)
