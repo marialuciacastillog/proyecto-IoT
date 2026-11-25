@@ -78,3 +78,23 @@ services:
     depends_on:
       wh_001_postgres_db:
         condition: service_healthy
+
+  # Fase 6: worker de transferencias. Recibe órdenes de la central y las aplica en esta bodega
+  wh_001_transfer_worker:
+    build:
+      context: ./src/backend/app
+      dockerfile: Dockerfile
+    container_name: transfer_worker_${WH_ID}
+    command: python -m app.modules.transfers.worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@wh_001_postgres_db:5432/warehouse_db
+      - WAREHOUSE_ID=wh-001
+      - REDIS_URL=redis://wh_001_redis:6379/0
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ~/.aws:/root/.aws:ro
+    depends_on:
+      wh_001_postgres_db:
+        condition: service_healthy

@@ -67,6 +67,12 @@ class InventoryService:
                 new_qty -= qty
                 new_reserved += qty
 
+            elif m_type == "RESERVATION_CONFIRM":
+                # Fase 6: las unidades apartadas salen definitivamente (transferencia completada)
+                if new_reserved < qty:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Confirmación excede reserva existente")
+                new_reserved -= qty
+
             elif m_type == "RELEASE":
                 if new_reserved < qty:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Liberación excede reserva existente")

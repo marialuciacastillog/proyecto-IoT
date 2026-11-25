@@ -33,6 +33,10 @@ export REPORTS_QUEUE_URL="${reports_queue_url}"
 export REPORTS_BUCKET_NAME="${reports_bucket_name}"
 cd /opt/proyecto/reports
 docker compose up -d --build
+
+# 4.3 Fase 6: transferencias entre bodegas (API en el puerto 8010 + orquestador)
+cd /opt/proyecto/src/central_transfers
+docker compose up -d --build
 %{ else ~}
 cd /opt/proyecto/src/warehouse
 docker compose -f docker/components/${wh_folder}/compose-warehouse.yml --project-directory . --env-file docker/components/${wh_folder}/.env up -d --build

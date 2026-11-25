@@ -31,3 +31,10 @@
 1. src/central_sync_worker (crea la red iot-central-network y el volumen)
 2. reports
 3. src/warehouse
+
+## Transferencias entre bodegas (Fase 6)
+- API: src/central_transfers (puerto 8010). POST /transfers, GET /transfers/{id}
+- Colas: transfer-commands-wh-001/002/003 (central -> bodega) y transfer-events (bodega -> central)
+- Orden: { "transferId": "TR-XXXX", "command": "RESERVE|RECEIVE|COMMIT|RELEASE", "productId": "P-001", "quantity": 30, "expiresAt": "fecha o null" }
+- Respuesta: { "transferId": "TR-XXXX", "command": "RESERVE", "warehouseId": "wh-001", "ok": true, "reason": "" }
+- Orden para prender en la central: src/central_sync_worker -> reports -> src/central_transfers

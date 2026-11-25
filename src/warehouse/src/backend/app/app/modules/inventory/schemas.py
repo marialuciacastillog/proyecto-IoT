@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class MovementCreate(BaseModel):
     product_id: int
-    type: str = Field(..., description="RECEIPT, SHIPMENT, ADJUSTMENT, RESERVATION, RELEASE")
+    type: str = Field(..., description="RECEIPT, SHIPMENT, RESERVATION, RELEASE, RESERVATION_CONFIRM, TRANSFER_IN, TRANSFER_OUT")
     quantity: int = Field(..., gt=0)
     reference: Optional[str] = None
 
