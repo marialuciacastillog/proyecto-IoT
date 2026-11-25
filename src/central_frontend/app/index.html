@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central · Warehouse Cloud Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">
+            Warehouse Cloud Platform
+            <small>Nodo central</small>
+        </div>
+        <nav class="nav" id="nav">
+            <button data-view="resumen" class="active">Resumen</button>
+            <button data-view="inventario">Inventario global</button>
+            <button data-view="transferencias">Transferencias</button>
+            <button data-view="reportes">Reportes</button>
+        </nav>
+        <div class="sidebar-footer">
+            <div id="status-reports" class="status-dot">Reportes</div>
+            <div id="status-transfers" class="status-dot">Transferencias</div>
+            <div id="status-iot" class="status-dot">Ingesta IoT</div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <!-- RESUMEN -->
+        <section class="view active" id="view-resumen">
+            <div class="page-header">
+                <div>
+                    <h1>Resumen</h1>
+                    <p>Transferencias entre bodegas y reportes generados en la central</p>
+                </div>
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="grid grid-4">
+                <div class="card stat"><div class="label">Transferencias en curso</div><div class="value" id="stat-active">-</div></div>
+                <div class="card stat"><div class="label">Completadas</div><div class="value" id="stat-completed">-</div></div>
+                <div class="card stat"><div class="label">Fallidas o compensadas</div><div class="value" id="stat-failed">-</div></div>
+                <div class="card stat"><div class="label">Reportes listos</div><div class="value" id="stat-reports">-</div></div>
+            </div>
+            <div class="grid grid-2 mt">
+                <div class="card">
+                    <h2>Últimas transferencias</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>ID</th><th>Ruta</th><th>Producto</th><th>Estado</th></tr></thead>
+                            <tbody id="summary-transfers"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Últimos reportes</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Tipo</th><th>Formato</th><th>Estado</th><th>Fecha</th></tr></thead>
+                            <tbody id="summary-reports"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVENTARIO GLOBAL -->
+        <section class="view" id="view-inventario">
+            <div class="page-header">
+                <div>
+                    <h1>Inventario global</h1>
+                    <p>Read Model de la central (global_inventory): lo que cada bodega reportó por SNS → sync-queue</p>
+                </div>
+            </div>
+            <div class="card">
+                <form id="global-form" class="toolbar">
+                    <input id="global-product" required placeholder="Código del producto, por ejemplo P-001">
+                    <button class="btn btn-primary" type="submit">Consultar</button>
+                </form>
+                <div id="global-result" class="mt"></div>
+            </div>
+        </section>
+
+        <!-- TRANSFERENCIAS -->
+        <section class="view" id="view-transferencias">
+            <div class="page-header">
+                <div>
+                    <h1>Transferencias entre bodegas</h1>
+                    <p>La central coordina la saga: RESERVE en el origen, RECEIVE en el destino y COMMIT (o RELEASE si algo falla)</p>
+                </div>
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h2>Nueva transferencia</h2>
+                    <form id="transfer-form">
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="t-source">Origen</label>
+                                <select id="t-source" required>
+                                    <option value="wh-001">wh-001</option>
+                                    <option value="wh-002">wh-002</option>
+                                    <option value="wh-003">wh-003</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="t-destination">Destino</label>
+                                <select id="t-destination" required>
+                                    <option value="wh-001">wh-001</option>
+                                    <option value="wh-002" selected>wh-002</option>
+                                    <option value="wh-003">wh-003</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="field"><label for="t-product">Código del producto</label><input id="t-product" required placeholder="P-001"></div>
+                            <div class="field"><label for="t-quantity">Cantidad</label><input id="t-quantity" type="number" min="1" required></div>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Solicitar transferencia</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Estados de la saga</h2>
+                    <table>
+                        <tbody>
+                            <tr><td><span class="badge info">REQUESTED → RESERVING_SOURCE</span></td><td>Se pidió apartar las unidades en el origen</td></tr>
+                            <tr><td><span class="badge info">SOURCE_RESERVED → IN_TRANSIT</span></td><td>El origen apartó; se avisa al destino</td></tr>
+                            <tr><td><span class="badge info">DESTINATION_RECEIVED</span></td><td>El destino sumó las unidades; falta confirmar en el origen</td></tr>
+                            <tr><td><span class="badge ok">COMPLETED</span></td><td>El origen confirmó la salida</td></tr>
+                            <tr><td><span class="badge warn">COMPENSATING → RESERVATION_RELEASED</span></td><td>Algo falló y se devolvió lo apartado</td></tr>
+                            <tr><td><span class="badge error">FAILED</span></td><td>No se pudo reservar (sin stock o producto inexistente)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mt">
+                <h2>Últimas 20 transferencias</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>ID</th><th>Origen</th><th>Destino</th><th>Producto</th><th class="num">Cantidad</th><th>Estado</th><th>Motivo</th><th>Actualizada</th></tr></thead>
+                        <tbody id="transfers-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- REPORTES -->
+        <section class="view" id="view-reportes">
+            <div class="page-header">
+                <div>
+                    <h1>Reportes</h1>
+                    <p>Se piden aquí, el worker los genera por la cola reports-queue y quedan en S3</p>
+                </div>
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h2>Pedir un reporte</h2>
+                    <form id="report-form">
+                        <div class="field"><label for="r-type">Tipo</label><select id="r-type" required></select></div>
+                        <p class="sub" id="r-description"></p>
+                        <div class="field mt">
+                            <label for="r-format">Formato</label>
+                            <select id="r-format" required></select>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Generar</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Cómo funciona</h2>
+                    <table>
+                        <tbody>
+                            <tr><td><span class="badge neutral">PENDING</span></td><td>Guardado en report_jobs y report_outbox</td></tr>
+                            <tr><td><span class="badge info">QUEUED</span></td><td>El publicador lo mandó a reports-queue</td></tr>
+                            <tr><td><span class="badge info">PROCESSING</span></td><td>El worker está consultando la base</td></tr>
+                            <tr><td><span class="badge ok">COMPLETED</span></td><td>Archivo en S3, se descarga con un link temporal de 15 min</td></tr>
+                            <tr><td><span class="badge error">FAILED</span></td><td>Falló; el motivo queda guardado</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mt">
+                <h2>Reportes pedidos</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Tipo</th><th>Formato</th><th>Estado</th><th>Pedido</th><th>Actualizado</th><th></th></tr></thead>
+                        <tbody id="reports-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Detalle de una transferencia -->
+    <div class="modal" id="transfer-modal">
+        <div class="modal-box">
+            <div class="card-header">
+                <h2 id="transfer-modal-title">Transferencia</h2>
+                <button class="btn btn-light" data-close>Cerrar</button>
+            </div>
+            <div id="transfer-modal-body"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -3,121 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Cloud Platform</title>
+    <title>Bodega · Warehouse Cloud Platform</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
-        <h1>📦 Warehouse Central Node</h1>
-        <div id="health-status" class="status-badge loading">Conectando...</div>
-    </header>
+    <aside class="sidebar">
+        <div class="brand">
+            Warehouse Cloud Platform
+            <small>Bodega <span id="warehouse-name">...</span></small>
+        </div>
+        <nav class="nav" id="nav">
+            <button data-view="resumen" class="active">Resumen</button>
+            <button data-view="productos">Productos</button>
+            <button data-view="inventario">Inventario</button>
+            <button data-view="historial">Historial</button>
+        </nav>
+        <div class="sidebar-footer">
+            <div id="api-status" class="status-dot">Conectando...</div>
+            <div>Copia de la API: <span id="api-instance">-</span></div>
+        </div>
+    </aside>
 
-    <main class="dashboard-grid">
-        <!-- SECCIÓN: CREAR PRODUCTO -->
-        <section class="card">
-            <h2>Nuevo Producto</h2>
-            <form id="product-form">
-                <div class="form-group">
-                    <label for="sku">SKU (Único)</label>
-                    <input type="text" id="sku" required placeholder="Ej: PROD-1001">
+    <main class="content">
+        <!-- RESUMEN -->
+        <section class="view active" id="view-resumen">
+            <div class="page-header">
+                <div>
+                    <h1>Resumen de la bodega</h1>
+                    <p>Estado del inventario local y de la caché</p>
                 </div>
-                <div class="form-group">
-                    <label for="name">Nombre</label>
-                    <input type="text" id="name" required placeholder="Ej: Caja de Herramientas">
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="grid grid-4">
+                <div class="card stat"><div class="label">Productos</div><div class="value" id="stat-products">-</div></div>
+                <div class="card stat"><div class="label">Unidades disponibles</div><div class="value" id="stat-available">-</div></div>
+                <div class="card stat"><div class="label">Unidades reservadas</div><div class="value" id="stat-reserved">-</div></div>
+                <div class="card stat"><div class="label">Con poco stock</div><div class="value" id="stat-low">-</div><div class="hint">Menos de 10 unidades</div></div>
+            </div>
+            <div class="grid grid-2 mt">
+                <div class="card">
+                    <h2>Productos con poco stock</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>SKU</th><th>Producto</th><th class="num">Disponible</th></tr></thead>
+                            <tbody id="low-stock-body"><tr><td colspan="3" class="empty">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="category">Categoría</label>
-                    <input type="text" id="category" placeholder="Ej: Logística">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Caché (Redis)</h2>
+                        <button class="btn btn-light" id="reset-cache-btn">Reiniciar contadores</button>
+                    </div>
+                    <div class="grid grid-4">
+                        <div class="stat"><div class="label">Hit ratio</div><div class="value" id="cache-ratio">-</div></div>
+                        <div class="stat"><div class="label">Hits</div><div class="value" id="cache-hits">-</div></div>
+                        <div class="stat"><div class="label">Misses</div><div class="value" id="cache-misses">-</div></div>
+                    </div>
+                    <p class="sub mt" id="cache-state"></p>
                 </div>
-                <div class="form-group">
-                    <label for="unit">Unidad</label>
-                    <input type="text" id="unit" required placeholder="Ej: UNIDADES">
-                </div>
-                <div class="form-group">
-                    <label for="description">Descripción</label>
-                    <textarea id="description" placeholder="Detalles opcionales..."></textarea>
-                </div>
-                <button type="submit" class="btn-primary">Registrar e Inicializar</button>
-            </form>
+            </div>
         </section>
 
-        <!-- SECCIÓN: MOVIMIENTOS DE INVENTARIO -->
-        <section class="card">
-            <h2>Registrar Movimiento</h2>
-            <form id="movement-form">
-                <div class="form-group">
-                    <label for="move-product-id">ID del Producto</label>
-                    <input type="number" id="move-product-id" required placeholder="Ej: 1">
+        <!-- PRODUCTOS -->
+        <section class="view" id="view-productos">
+            <div class="page-header">
+                <div>
+                    <h1>Productos</h1>
+                    <p>Catálogo de esta bodega. El SKU debe ser el mismo en todas las bodegas (es el código que viaja a la central).</p>
                 </div>
-                <div class="form-group">
-                    <label for="move-type">Tipo de Operación</label>
-                    <select id="move-type" required>
-                        <option value="RECEIPT">RECEIPT (Entrada)</option>
-                        <option value="SHIPMENT">SHIPMENT (Salida)</option>
-                        <option value="RESERVATION">RESERVATION (Reservar)</option>
-                        <option value="RELEASE">RELEASE (Liberar Reserva)</option>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h2>Nuevo producto</h2>
+                    <form id="product-form">
+                        <div class="form-row">
+                            <div class="field"><label for="p-sku">SKU</label><input id="p-sku" required placeholder="P-001"></div>
+                            <div class="field"><label for="p-unit">Unidad</label><input id="p-unit" required placeholder="UNIDADES"></div>
+                        </div>
+                        <div class="field"><label for="p-name">Nombre</label><input id="p-name" required placeholder="Caja de herramientas"></div>
+                        <div class="field"><label for="p-category">Categoría</label><input id="p-category" placeholder="Herramientas"></div>
+                        <div class="field"><label for="p-description">Descripción</label><textarea id="p-description" placeholder="Opcional"></textarea></div>
+                        <button class="btn btn-primary" type="submit">Crear producto</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Catálogo</h2>
+                        <input id="product-search" type="search" placeholder="Buscar por SKU, nombre o categoría">
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>ID</th><th>SKU</th><th>Nombre</th><th>Categoría</th><th>Unidad</th></tr></thead>
+                            <tbody id="products-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVENTARIO -->
+        <section class="view" id="view-inventario">
+            <div class="page-header">
+                <div>
+                    <h1>Inventario</h1>
+                    <p>Cada movimiento queda guardado y se envía a la central por SNS → sync-queue</p>
+                </div>
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h2>Registrar movimiento</h2>
+                    <form id="movement-form">
+                        <div class="field"><label for="m-product">Producto</label><select id="m-product" required></select></div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="m-type">Tipo</label>
+                                <select id="m-type" required>
+                                    <option value="RECEIPT">Entrada (RECEIPT)</option>
+                                    <option value="SHIPMENT">Salida (SHIPMENT)</option>
+                                    <option value="RETURN">Devolución (RETURN)</option>
+                                    <option value="RESERVATION">Reservar (RESERVATION)</option>
+                                    <option value="RESERVATION_CONFIRM">Confirmar reserva (RESERVATION_CONFIRM)</option>
+                                    <option value="RELEASE">Liberar reserva (RELEASE)</option>
+                                </select>
+                            </div>
+                            <div class="field"><label for="m-quantity">Cantidad</label><input id="m-quantity" type="number" min="1" required></div>
+                        </div>
+                        <div class="field"><label for="m-reference">Referencia</label><input id="m-reference" placeholder="Guía, factura u orden (opcional)"></div>
+                        <div class="field"><label for="m-correlation">Correlation ID</label><input id="m-correlation" placeholder="Opcional: si se deja vacío la API crea uno"></div>
+                        <button class="btn btn-primary" type="submit">Registrar</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Existencias</h2>
+                        <input id="stock-search" type="search" placeholder="Buscar">
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>SKU</th><th>Producto</th><th class="num">Disponible</th><th class="num">Reservado</th><th></th></tr></thead>
+                            <tbody id="stock-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HISTORIAL -->
+        <section class="view" id="view-historial">
+            <div class="page-header">
+                <div>
+                    <h1>Historial de movimientos</h1>
+                    <p>Todas las entradas, salidas, reservas y transferencias de esta bodega</p>
+                </div>
+                <div class="toolbar">
+                    <select id="history-type">
+                        <option value="">Todos los tipos</option>
+                        <option value="IN">Solo entradas</option>
+                        <option value="OUT">Solo salidas</option>
+                        <option value="RES">Reservas</option>
                     </select>
+                    <input id="history-search" type="search" placeholder="SKU o referencia">
+                    <button class="btn btn-light" data-refresh>Actualizar</button>
                 </div>
-                <div class="form-group">
-                    <label for="move-quantity">Cantidad</label>
-                    <input type="number" id="move-quantity" min="1" required placeholder="Ej: 50">
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th></tr></thead>
+                        <tbody id="history-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                    </table>
                 </div>
-                <div class="form-group">
-                    <label for="move-reference">Referencia / Guía</label>
-                    <input type="text" id="move-reference" placeholder="Ej: REF-TRK-100">
-                </div>
-                <button type="submit" class="btn-secondary">Ejecutar Transacción</button>
-            </form>
-        </section>
-
-        <!-- SECCIÓN: MONITOR DE STOCK -->
-        <section class="card wide">
-            <h2>Inventario en Tiempo Real</h2>
-            <button id="refresh-stock-btn" class="btn-small">🔄 Actualizar</button>
-            <div class="table-container">
-                <table id="stock-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>SKU</th>
-                            <th>Producto</th>
-                            <th>Disponible</th>
-                            <th>Reservado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Dinámico vía JS -->
-                    </tbody>
-                </table>
             </div>
         </section>
     </main>
 
-    <!-- MODAL DE HISTORIAL -->
-    <div id="history-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h2 id="modal-title">Historial de Movimientos</h2>
-            <div class="table-container">
+    <!-- Historial de un producto -->
+    <div class="modal" id="product-modal">
+        <div class="modal-box">
+            <div class="card-header">
+                <h2 id="product-modal-title">Movimientos</h2>
+                <button class="btn btn-light" data-close>Cerrar</button>
+            </div>
+            <div class="table-wrap">
                 <table>
-                    <thead>
-                        <tr>
-                            <th>ID Mov</th>
-                            <th>Tipo</th>
-                            <th>Cantidad</th>
-                            <th>Referencia</th>
-                            <th>Fecha (UTC)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-table-body"></tbody>
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th></tr></thead>
+                    <tbody id="product-modal-body"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="toast"></div>
+    <div class="toast" id="toast"></div>
 
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

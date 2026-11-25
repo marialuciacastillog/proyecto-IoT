@@ -8,6 +8,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # El front pregunta aquí de qué bodega es. Nginx reemplaza ${WAREHOUSE_ID} al arrancar
+    # con la variable de entorno del contenedor (si no existe, el front la saca de la API).
+    location = /config.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-store";
+        return 200 'window.APP_CONFIG = { warehouseId: "${WAREHOUSE_ID}" };';
+    }
+
     location /api/ {
         # Se reemplaza dinámicamente por Nginx usando la variable de entorno
         proxy_pass http://${API_TARGET}/;

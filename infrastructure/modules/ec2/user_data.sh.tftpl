@@ -48,6 +48,10 @@ docker compose up -d --build
 cd /opt/proyecto/src/iot/central
 docker compose up -d --build
 
+# 4.4b Front de la central (puerto 8080): inventario global, transferencias y reportes
+cd /opt/proyecto/src/central_frontend
+docker compose up -d --build
+
 # 4.5 Fase 8: proceso Batch. Se deja construido y programado con cron
 # todos los días a las 23:00 (hora del servidor, que está en UTC)
 cd /opt/proyecto/src/central_batch

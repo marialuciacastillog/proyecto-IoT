@@ -42,3 +42,12 @@
 - Orden: { "transferId": "TR-XXXX", "command": "RESERVE|RECEIVE|COMMIT|RELEASE", "productId": "P-001", "quantity": 30, "expiresAt": "fecha o null" }
 - Respuesta: { "transferId": "TR-XXXX", "command": "RESERVE", "warehouseId": "wh-001", "ok": true, "reason": "" }
 - Orden para prender en la central: src/central_sync_worker -> reports -> src/central_transfers
+
+## Fronts
+- Bodega: src/warehouse/src/frontend/app. La misma imagen en las 3 bodegas (puertos 8081, 8082, 8083).
+  Nginx manda /api/... al balanceador de la bodega y entrega /config.js con WAREHOUSE_ID (del compose).
+  Vistas: Resumen (stock y caché), Productos, Inventario (movimientos con X-Correlation-ID) e Historial.
+- Central: src/central_frontend (puerto 8080). Se prende después de src/central_sync_worker (usa iot-central-network).
+  Nginx reenvía /svc/reports/ -> iot-reports-api, /svc/transfers/ -> central_transfers_api y /svc/iot/ -> iot_ingestion.
+  Vistas: Resumen, Inventario global (Read Model), Transferencias (saga) y Reportes (S3).
+- Pendiente: roles y credenciales. Cuando exista el login, cada botón del menú (data-view) se muestra según el rol.
