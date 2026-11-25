@@ -1,0 +1,11 @@
+    event_type     | correlation_id | warehouse_id | quantity 
+-------------------+----------------+--------------+----------
+ INVENTORY_UPDATED | COR-PRUEBA-1   | wh-001       |       20
+ INVENTORY_UPDATED | COR-CAIDA-5    | wh-001       |       25
+ INVENTORY_UPDATED | COR-CAIDA-3    | wh-001       |       28
+ INVENTORY_UPDATED | COR-CAIDA-2    | wh-001       |       30
+ INVENTORY_UPDATED | TR-96D37AD9    | wh-001       |       26
+ INVENTORY_UPDATED | TR-96D37AD9    | wh-002       |        4
+ INVENTORY_UPDATED | TR-96D37AD9    | wh-001       |       26
+(7 rows)
+
