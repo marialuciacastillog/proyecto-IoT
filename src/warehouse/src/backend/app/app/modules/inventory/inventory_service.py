@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.modules.inventory.schemas import MovementCreate
 from app.modules.inventory.inventory_repository import InventoryRepository
 from app.modules.sync.pending import savePendingEvent
+from app.modules.cache.redis_cache import buildInventoryKey, getCache, setCache, deleteCache, countCache
 
 class InventoryService:
     def __init__(self, db: Session):
@@ -13,10 +14,27 @@ class InventoryService:
         # Método expuesto de forma segura para otros servicios del monolito
         self.repo.initialize_inventory(product_id)
 
+    # Fase 2 - Cache Aside: primero Redis; si no está (MISS), PostgreSQL y se guarda en Redis
     def get_stock(self, product_id: int):
-        inventory = self.repo.get_by_product(product_id)
-        if not inventory:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventario no encontrado")
+        key = buildInventoryKey(product_id)
+        inventory = getCache(key)
+        if inventory is not None:
+            print("CACHE HIT", key)
+            countCache("hits")
+        else:
+            print("CACHE MISS", key)
+            countCache("misses")
+            entity = self.repo.get_by_product(product_id)
+            if not entity:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventario no encontrado")
+            inventory = {
+                "product_id": entity.product_id,
+                "warehouse_id": entity.warehouse_id,
+                "quantity": entity.quantity,
+                "reserved_quantity": entity.reserved_quantity,
+                "updated_at": entity.updated_at
+            }
+            setCache(key, inventory)
         return inventory
 
     def process_movement(self, movement_in: MovementCreate):
@@ -66,6 +84,10 @@ class InventoryService:
             
             # 4. Control de Transacción centralizado en el Servicio
             self.db.commit()
+
+            # 5. Fase 2 - Invalidación explícita: el dato de Redis ya es viejo, se borra.
+            #    Va DESPUÉS del commit para que nadie vuelva a guardar en Redis el valor anterior.
+            deleteCache(buildInventoryKey(movement_in.product_id))
             return movement
 
         except Exception as e:

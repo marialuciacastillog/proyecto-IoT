@@ -3,6 +3,7 @@ from app.database import engine, Base
 from app.modules.health.health_controller import router as health_controller
 from app.modules.products.products_controller import router as products_controller
 from app.modules.inventory.inventory_controller import router as inventory_controller
+from app.modules.cache.cache_controller import router as cache_controller
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,3 +16,4 @@ app = FastAPI(
 app.include_router(health_controller)
 app.include_router(products_controller)
 app.include_router(inventory_controller)
+app.include_router(cache_controller)
