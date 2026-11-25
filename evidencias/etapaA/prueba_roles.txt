@@ -1,0 +1,42 @@
+OK   login del Administrador Global -> 200
+OK   login con contraseña mala -> 401
+--- El Administrador Global crea un usuario por rol
+OK   crear admin bodega wh-001 -> 201
+OK   crear encargado wh-001 -> 201
+OK   crear encargado wh-002 -> 201
+OK   crear lider -> 201
+OK   encargado sin bodega -> 400
+OK   clave debil -> 400
+OK   usuario repetido -> 409
+OK   el Líder intenta crear usuarios -> 403
+OK   el Administrador Global lista usuarios -> 200
+--- Bodega wh-001
+OK   sin token -> 401
+OK   token inventado -> 401
+OK   el Encargado crea un producto -> 403
+OK   el Admin por Bodega crea un producto (400 si ya existía) -> 201
+OK   el Encargado registra una entrada -> 201
+     quién la hizo: "created_by":"juli.encargada1"
+OK   el Encargado registra TRANSFER_IN a mano -> 400
+OK   el Encargado de wh-002 registra en wh-001 -> 403
+OK   el Encargado de wh-002 consulta wh-001 -> 403
+OK   el Líder registra un movimiento -> 403
+OK   el Líder consulta inventario -> 200
+OK   health sin token -> 200
+--- Reportes
+OK   el Encargado pide un reporte -> 403
+OK   el Líder pide un reporte -> 202
+OK   el Admin por Bodega ve el consolidado -> 403
+--- Transferencias
+OK   Admin por Bodega wh-001 pide desde wh-002 -> 403
+OK   el Encargado pide una transferencia -> 403
+OK   Admin por Bodega wh-001 pide hacia wh-002 -> 202
+OK   Admin Global pide wh-001 hacia wh-003 -> 202
+OK   Encargado wh-002 ve TR-E96B3D1D (wh-002 es destino) -> 200
+     "requested_by":"ana.bodega1","justification":"Falta stock en wh-002 para pedido grande"
+OK   Encargado wh-002 ve TR-DE234C6E (no es de su bodega) -> 404
+--- Bloqueo y desactivación
+OK   contraseña correcta tras 5 intentos fallidos -> 401
+     {"detail":"Cuenta bloqueada por intentos fallidos. Intenta más tarde"}
+
+Resultado: 32 OK, 0 FAIL

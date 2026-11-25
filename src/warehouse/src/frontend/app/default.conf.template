@@ -32,4 +32,13 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_connect_timeout 5s;
     }
+
+    # Etapa B: catálogo global de la central (IP elástica, puerto 8007). Desde aquí el Administrador
+    # por Bodega ve el catálogo y elige qué productos maneja su bodega.
+    location /catalog/ {
+        proxy_pass http://${CATALOG_TARGET}/;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 5s;
+    }
 }

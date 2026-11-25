@@ -15,6 +15,8 @@
         <nav class="nav" id="nav">
             <button data-view="resumen" class="active">Resumen</button>
             <button data-view="inventario" data-roles="ADMIN_GLOBAL,LIDER">Inventario global</button>
+            <button data-view="bodegas" data-roles="ADMIN_GLOBAL,LIDER">Bodegas</button>
+            <button data-view="catalogo">Catálogo</button>
             <button data-view="transferencias">Transferencias</button>
             <button data-view="reportes" data-roles="ADMIN_GLOBAL,LIDER">Reportes</button>
             <button data-view="usuarios" data-roles="ADMIN_GLOBAL">Usuarios</button>
@@ -24,6 +26,7 @@
             <div id="status-transfers" class="status-dot">Transferencias</div>
             <div id="status-iot" class="status-dot">Ingesta IoT</div>
             <div id="status-identity" class="status-dot">Identidad</div>
+            <div id="status-catalog" class="status-dot">Catálogo</div>
         </div>
     </aside>
 
@@ -98,19 +101,11 @@
                         <div class="form-row">
                             <div class="field">
                                 <label for="t-source">Origen</label>
-                                <select id="t-source" required>
-                                    <option value="wh-001">wh-001</option>
-                                    <option value="wh-002">wh-002</option>
-                                    <option value="wh-003">wh-003</option>
-                                </select>
+                                <select id="t-source" required></select>
                             </div>
                             <div class="field">
                                 <label for="t-destination">Destino</label>
-                                <select id="t-destination" required>
-                                    <option value="wh-001">wh-001</option>
-                                    <option value="wh-002" selected>wh-002</option>
-                                    <option value="wh-003">wh-003</option>
-                                </select>
+                                <select id="t-destination" required></select>
                             </div>
                         </div>
                         <div class="form-row">
@@ -193,6 +188,103 @@
             </div>
         </section>
 
+        <!-- BODEGAS (Etapa B): el Administrador Global las registra; el Líder las consulta -->
+        <section class="view" id="view-bodegas">
+            <div class="page-header">
+                <div>
+                    <h1>Bodegas</h1>
+                    <p>Registro de bodegas. Si una bodega tiene historia no se borra: se archiva para no perder su información.</p>
+                </div>
+                <div class="toolbar">
+                    <label class="check"><input type="checkbox" id="w-archived"> Ver archivadas</label>
+                    <button class="btn btn-light" id="warehouses-refresh">Actualizar</button>
+                </div>
+            </div>
+            <div class="card" data-roles="ADMIN_GLOBAL">
+                <h2 id="w-form-title">Nueva bodega</h2>
+                <form id="warehouse-form">
+                    <div class="form-row">
+                        <div class="field"><label for="w-id">Identificador</label><input id="w-id" required placeholder="wh-004" pattern="wh-[0-9]{3}"></div>
+                        <div class="field"><label for="w-nit">NIT</label><input id="w-nit" required placeholder="900.456.789-4"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="w-name">Nombre</label><input id="w-name" required minlength="3"></div>
+                        <div class="field"><label for="w-location">Ubicación</label><input id="w-location" required minlength="3" placeholder="Ciudad, dirección o zona"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="w-manager">Encargado</label><input id="w-manager" required minlength="3" placeholder="Nombre de la persona"></div>
+                        <div class="field"><label for="w-manager-user">Usuario del encargado</label><input id="w-manager-user" placeholder="Opcional, por ejemplo ana.bodega1"></div>
+                    </div>
+                    <div class="field"><label for="w-description">Descripción</label><textarea id="w-description" placeholder="Opcional"></textarea></div>
+                    <p class="sub">El NIT se revisa con su dígito de verificación (regla de la DIAN).</p>
+                    <div class="toolbar mt">
+                        <button class="btn btn-primary" type="submit" id="w-submit">Registrar bodega</button>
+                        <button class="btn btn-light role-hidden" type="button" id="w-cancel">Cancelar edición</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card mt">
+                <h2>Bodegas registradas</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>ID</th><th>Nombre</th><th>NIT</th><th>Ubicación</th><th>Encargado</th><th class="num">Productos</th><th>Estado</th><th></th></tr></thead>
+                        <tbody id="warehouses-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- CATÁLOGO (Etapa B): todos lo ven; el Administrador Global lo modifica; el Admin por Bodega elige productos -->
+        <section class="view" id="view-catalogo">
+            <div class="page-header">
+                <div>
+                    <h1>Catálogo global de productos</h1>
+                    <p>El Administrador Global crea los productos. Cada Administrador por Bodega elige cuáles maneja su bodega.</p>
+                </div>
+                <div class="toolbar">
+                    <input id="c-search" type="search" placeholder="Código, nombre o categoría">
+                    <button class="btn btn-light" id="catalog-refresh">Actualizar</button>
+                </div>
+            </div>
+            <div class="card" data-roles="ADMIN_GLOBAL">
+                <h2 id="c-form-title">Nuevo producto</h2>
+                <form id="catalog-form">
+                    <div class="form-row">
+                        <div class="field"><label for="c-code">Código</label><input id="c-code" required placeholder="P-003"></div>
+                        <div class="field"><label for="c-name">Nombre</label><input id="c-name" required minlength="2"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="c-category">Categoría</label><input id="c-category" required minlength="2" placeholder="Ferretería"></div>
+                        <div class="field"><label for="c-supplier">Proveedor</label><input id="c-supplier" required minlength="2"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="c-cost">Costo</label><input id="c-cost" type="number" min="0" step="0.01" required></div>
+                        <div class="field"><label for="c-price">Precio de venta</label><input id="c-price" type="number" min="0" step="0.01" required></div>
+                        <div class="field"><label for="c-wholesale">Precio mayorista</label><input id="c-wholesale" type="number" min="0" step="0.01" required></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="c-unit">Unidad</label><input id="c-unit" required value="UNIDADES"></div>
+                        <div class="field"><label for="c-initial">Cantidad inicial</label><input id="c-initial" type="number" min="0" value="0" required></div>
+                    </div>
+                    <div class="field"><label for="c-description">Descripción</label><textarea id="c-description" placeholder="Opcional"></textarea></div>
+                    <p class="sub">La cantidad inicial es la que se propone cuando una bodega agrega el producto. El precio mayorista no puede ser mayor que el de venta.</p>
+                    <div class="toolbar mt">
+                        <button class="btn btn-primary" type="submit" id="c-submit">Crear producto</button>
+                        <button class="btn btn-light role-hidden" type="button" id="c-cancel">Cancelar edición</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card mt">
+                <h2>Productos</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Código</th><th>Producto</th><th>Proveedor</th><th class="num">Costo</th><th class="num">Venta</th><th class="num">Mayorista</th><th class="num">Cant. inicial</th><th>Bodegas</th><th></th></tr></thead>
+                        <tbody id="catalog-body"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!-- USUARIOS (Etapa A): solo el Administrador Global -->
         <section class="view" id="view-usuarios">
             <div class="page-header">
@@ -223,11 +315,7 @@
                             </div>
                             <div class="field" id="u-warehouse-field">
                                 <label for="u-warehouse">Bodega</label>
-                                <select id="u-warehouse">
-                                    <option value="wh-001">wh-001</option>
-                                    <option value="wh-002">wh-002</option>
-                                    <option value="wh-003">wh-003</option>
-                                </select>
+                                <select id="u-warehouse"></select>
                             </div>
                         </div>
                         <p class="sub">Mínimo 8 caracteres, con letras y números. Los roles de bodega solo pueden trabajar con su bodega.</p>

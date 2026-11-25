@@ -7,7 +7,8 @@ const SERVICES = {
     reports: "/svc/reports",
     transfers: "/svc/transfers",
     iot: "/svc/iot",
-    identity: "/svc/identity"
+    identity: "/svc/identity",
+    catalog: "/svc/catalog"
 };
 
 // Etapa A: quién puede usar cada parte (los mismos permisos que revisa el backend)
@@ -21,6 +22,10 @@ const state = {
     reportTypes: [],
     jobs: [],
     users: [],
+    warehouses: [],
+    catalog: [],
+    editingWarehouse: null,
+    editingProduct: null,
     timer: null
 };
 
@@ -39,6 +44,10 @@ function formatDate(value) {
 
 function formatNumber(value) {
     return Number(value || 0).toLocaleString("es-CO");
+}
+
+function formatMoney(value) {
+    return value === null || value === undefined ? "-" : "$" + Number(value).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 }
 
 function toast(message, type) {
@@ -117,6 +126,7 @@ function checkServices() {
     checkService("transfers", "status-transfers", "Transferencias");
     checkService("iot", "status-iot", "Ingesta IoT");
     checkService("identity", "status-identity", "Identidad");
+    checkService("catalog", "status-catalog", "Catálogo");
 }
 
 
@@ -452,9 +462,279 @@ async function resetUserPassword(userId) {
 }
 
 
+// ---------- Bodegas (Etapa B) ----------
+
+// Llena los selectores de bodega (transferencias y usuarios) con las bodegas ACTIVAS del registro
+function fillWarehouseSelects() {
+    const active = state.warehouses.filter(w => w.status === "ACTIVE");
+    const options = active.map(w => '<option value="' + esc(w.warehouse_id) + '">' + esc(w.warehouse_id) + " · " + esc(w.name) + "</option>").join("");
+    ["t-source", "t-destination", "u-warehouse"].forEach(id => {
+        const select = document.getElementById(id);
+        const current = select.value;
+        select.innerHTML = options;
+        if (current && active.some(w => w.warehouse_id === current)) {
+            select.value = current;
+        }
+    });
+    if (active.length > 1 && document.getElementById("t-destination").value === document.getElementById("t-source").value) {
+        document.getElementById("t-destination").value = active.find(w => w.warehouse_id !== document.getElementById("t-source").value).warehouse_id;
+    }
+}
+
+async function loadWarehouses() {
+    const archived = document.getElementById("w-archived").checked;
+    try {
+        state.warehouses = await api("catalog", "/warehouses?include_archived=" + archived);
+    } catch (error) {
+        state.warehouses = [];
+        document.getElementById("warehouses-body").innerHTML = '<tr><td colspan="8" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    fillWarehouseSelects();
+    renderWarehouses();
+}
+
+function renderWarehouses() {
+    const body = document.getElementById("warehouses-body");
+    const isAdmin = hasRole("ADMIN_GLOBAL");
+    if (state.warehouses.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty">No hay bodegas</td></tr>';
+        return;
+    }
+    body.innerHTML = state.warehouses.map(w => {
+        const status = w.status === "ACTIVE" ? '<span class="badge ok">Activa</span>' : '<span class="badge neutral">Archivada</span>';
+        let actions = "";
+        if (isAdmin && w.status === "ACTIVE") {
+            actions = '<button class="link" data-wh-edit="' + esc(w.warehouse_id) + '">Editar</button> ' +
+                '<button class="link" data-wh-delete="' + esc(w.warehouse_id) + '">Eliminar</button>';
+        }
+        if (isAdmin && w.status !== "ACTIVE") {
+            actions = '<button class="link" data-wh-restore="' + esc(w.warehouse_id) + '">Reactivar</button>';
+        }
+        return "<tr><td><strong>" + esc(w.warehouse_id) + "</strong></td><td>" + esc(w.name) +
+            (w.description ? '<span class="sub">' + esc(w.description) + "</span>" : "") + "</td><td>" + esc(w.nit) +
+            "</td><td>" + esc(w.location) + "</td><td>" + esc(w.manager_name) +
+            (w.manager_username ? '<span class="sub">' + esc(w.manager_username) + "</span>" : "") +
+            '</td><td class="num">' + formatNumber(w.products) + "</td><td>" + status + "</td><td>" + actions + "</td></tr>";
+    }).join("");
+}
+
+function resetWarehouseForm() {
+    state.editingWarehouse = null;
+    document.getElementById("warehouse-form").reset();
+    document.getElementById("w-id").disabled = false;
+    document.getElementById("w-form-title").textContent = "Nueva bodega";
+    document.getElementById("w-submit").textContent = "Registrar bodega";
+    document.getElementById("w-cancel").classList.add("role-hidden");
+}
+
+function editWarehouse(warehouseId) {
+    const w = state.warehouses.find(item => item.warehouse_id === warehouseId);
+    state.editingWarehouse = warehouseId;
+    document.getElementById("w-id").value = w.warehouse_id;
+    document.getElementById("w-id").disabled = true;
+    document.getElementById("w-nit").value = w.nit;
+    document.getElementById("w-name").value = w.name;
+    document.getElementById("w-location").value = w.location;
+    document.getElementById("w-manager").value = w.manager_name;
+    document.getElementById("w-manager-user").value = w.manager_username || "";
+    document.getElementById("w-description").value = w.description || "";
+    document.getElementById("w-form-title").textContent = "Editar bodega " + warehouseId;
+    document.getElementById("w-submit").textContent = "Guardar cambios";
+    document.getElementById("w-cancel").classList.remove("role-hidden");
+    document.getElementById("warehouse-form").scrollIntoView({ behavior: "smooth" });
+}
+
+async function saveWarehouse(event) {
+    event.preventDefault();
+    const form = event.target;
+    const payload = {
+        nit: document.getElementById("w-nit").value.trim(),
+        name: document.getElementById("w-name").value.trim(),
+        location: document.getElementById("w-location").value.trim(),
+        manager_name: document.getElementById("w-manager").value.trim(),
+        manager_username: document.getElementById("w-manager-user").value.trim() || null,
+        description: document.getElementById("w-description").value.trim() || null
+    };
+    form.querySelector("button[type=submit]").disabled = true;
+    try {
+        if (state.editingWarehouse) {
+            await api("catalog", "/warehouses/" + state.editingWarehouse, {
+                method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+            });
+            toast("Bodega " + state.editingWarehouse + " actualizada");
+        } else {
+            payload.warehouse_id = document.getElementById("w-id").value.trim().toLowerCase();
+            await api("catalog", "/warehouses", postJson(payload));
+            toast("Bodega " + payload.warehouse_id + " registrada");
+        }
+        resetWarehouseForm();
+        await loadWarehouses();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+    form.querySelector("button[type=submit]").disabled = false;
+}
+
+async function deleteWarehouse(warehouseId) {
+    if (window.confirm("¿Eliminar la bodega " + warehouseId + "? Si tiene historia se archiva en vez de borrarse.")) {
+        try {
+            const result = await api("catalog", "/warehouses/" + warehouseId, { method: "DELETE" });
+            toast(result.message);
+            await loadWarehouses();
+        } catch (error) {
+            toast(error.message, "error");
+        }
+    }
+}
+
+async function restoreWarehouse(warehouseId) {
+    try {
+        await api("catalog", "/warehouses/" + warehouseId, {
+            method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "ACTIVE" })
+        });
+        toast("Bodega " + warehouseId + " reactivada");
+        await loadWarehouses();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+
+// ---------- Catálogo (Etapa B) ----------
+
+async function loadCatalog() {
+    const search = document.getElementById("c-search").value.trim();
+    try {
+        state.catalog = await api("catalog", "/products?search=" + encodeURIComponent(search));
+    } catch (error) {
+        state.catalog = [];
+        document.getElementById("catalog-body").innerHTML = '<tr><td colspan="9" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    renderCatalog();
+}
+
+function renderCatalog() {
+    const body = document.getElementById("catalog-body");
+    const session = getSession();
+    if (state.catalog.length === 0) {
+        body.innerHTML = '<tr><td colspan="9" class="empty">No hay productos en el catálogo</td></tr>';
+        return;
+    }
+    body.innerHTML = state.catalog.map(p => {
+        let action = "";
+        if (session.role === "ADMIN_GLOBAL") {
+            action = '<button class="link" data-product-edit="' + esc(p.product_code) + '">Editar</button>';
+        }
+        if (session.role === "ADMIN_BODEGA") {
+            action = p.warehouses.includes(session.warehouseId)
+                ? '<span class="badge ok">En tu bodega</span>'
+                : '<button class="link" data-product-assign="' + esc(p.product_code) + '">Agregar a mi bodega</button>';
+        }
+        const warehouses = p.warehouses.length ? p.warehouses.map(w => '<span class="badge info">' + esc(w) + "</span>").join(" ") : '<span class="sub">Ninguna</span>';
+        return "<tr><td><strong>" + esc(p.product_code) + "</strong></td><td>" + esc(p.name) + '<span class="sub">' +
+            esc(p.category) + " · " + esc(p.unit) + "</span></td><td>" + esc(p.supplier) + '</td><td class="num">' +
+            formatMoney(p.cost) + '</td><td class="num">' + formatMoney(p.sale_price) + '</td><td class="num">' +
+            formatMoney(p.wholesale_price) + '</td><td class="num">' + formatNumber(p.initial_quantity) + "</td><td>" +
+            warehouses + "</td><td>" + action + "</td></tr>";
+    }).join("");
+}
+
+function resetProductForm() {
+    state.editingProduct = null;
+    document.getElementById("catalog-form").reset();
+    document.getElementById("c-unit").value = "UNIDADES";
+    document.getElementById("c-initial").value = "0";
+    document.getElementById("c-code").disabled = false;
+    document.getElementById("c-form-title").textContent = "Nuevo producto";
+    document.getElementById("c-submit").textContent = "Crear producto";
+    document.getElementById("c-cancel").classList.add("role-hidden");
+}
+
+function editProduct(code) {
+    const p = state.catalog.find(item => item.product_code === code);
+    state.editingProduct = code;
+    document.getElementById("c-code").value = p.product_code;
+    document.getElementById("c-code").disabled = true;
+    document.getElementById("c-name").value = p.name;
+    document.getElementById("c-category").value = p.category;
+    document.getElementById("c-supplier").value = p.supplier;
+    document.getElementById("c-cost").value = p.cost;
+    document.getElementById("c-price").value = p.sale_price;
+    document.getElementById("c-wholesale").value = p.wholesale_price;
+    document.getElementById("c-unit").value = p.unit;
+    document.getElementById("c-initial").value = p.initial_quantity;
+    document.getElementById("c-description").value = p.description || "";
+    document.getElementById("c-form-title").textContent = "Editar " + code + " (el cambio llega a las bodegas que lo manejan)";
+    document.getElementById("c-submit").textContent = "Guardar cambios";
+    document.getElementById("c-cancel").classList.remove("role-hidden");
+    document.getElementById("catalog-form").scrollIntoView({ behavior: "smooth" });
+}
+
+async function saveProduct(event) {
+    event.preventDefault();
+    const form = event.target;
+    const payload = {
+        name: document.getElementById("c-name").value.trim(),
+        category: document.getElementById("c-category").value.trim(),
+        supplier: document.getElementById("c-supplier").value.trim(),
+        unit: document.getElementById("c-unit").value.trim(),
+        cost: document.getElementById("c-cost").value,
+        sale_price: document.getElementById("c-price").value,
+        wholesale_price: document.getElementById("c-wholesale").value,
+        initial_quantity: parseInt(document.getElementById("c-initial").value, 10),
+        description: document.getElementById("c-description").value.trim() || null
+    };
+    form.querySelector("button[type=submit]").disabled = true;
+    try {
+        if (state.editingProduct) {
+            await api("catalog", "/products/" + encodeURIComponent(state.editingProduct), {
+                method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+            });
+            toast("Producto " + state.editingProduct + " actualizado. Las bodegas que lo manejan reciben el cambio");
+        } else {
+            payload.product_code = document.getElementById("c-code").value.trim().toUpperCase();
+            await api("catalog", "/products", postJson(payload));
+            toast("Producto " + payload.product_code + " creado en el catálogo");
+        }
+        resetProductForm();
+        await loadCatalog();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+    form.querySelector("button[type=submit]").disabled = false;
+}
+
+// El Administrador por Bodega agrega un producto del catálogo a su bodega (RF-08)
+async function assignProduct(code) {
+    const session = getSession();
+    const product = state.catalog.find(item => item.product_code === code);
+    const answer = window.prompt("¿Con cuántas unidades entra " + code + " a " + session.warehouseId + "?", String(product.initial_quantity));
+    if (answer !== null) {
+        const quantity = parseInt(answer, 10);
+        if (isNaN(quantity) || quantity < 0) {
+            toast("La cantidad debe ser un número igual o mayor que 0", "error");
+        } else {
+            try {
+                const result = await api("catalog", "/warehouses/" + session.warehouseId + "/products",
+                    postJson({ product_code: code, initial_quantity: quantity }));
+                toast(result.message);
+                await loadCatalog();
+            } catch (error) {
+                toast(error.message, "error");
+            }
+        }
+    }
+}
+
+
 // ---------- Etapa A: entrada después del login ----------
 
-function startApp(session) {
+async function startApp(session) {
+    // Etapa B: primero las bodegas del registro, porque llenan los selectores de bodega
+    await loadWarehouses();
+    loadCatalog();
     // El Administrador por Bodega solo puede pedir transferencias desde su bodega
     const source = document.getElementById("t-source");
     const note = document.getElementById("t-source-note");
@@ -501,7 +781,31 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.target.dataset.userReset) {
             resetUserPassword(parseInt(event.target.dataset.userReset, 10));
         }
+        const data = event.target.dataset;
+        if (data.whEdit) {
+            editWarehouse(data.whEdit);
+        }
+        if (data.whDelete) {
+            deleteWarehouse(data.whDelete);
+        }
+        if (data.whRestore) {
+            restoreWarehouse(data.whRestore);
+        }
+        if (data.productEdit) {
+            editProduct(data.productEdit);
+        }
+        if (data.productAssign) {
+            assignProduct(data.productAssign);
+        }
     });
+    document.getElementById("warehouse-form").addEventListener("submit", saveWarehouse);
+    document.getElementById("w-cancel").addEventListener("click", resetWarehouseForm);
+    document.getElementById("w-archived").addEventListener("change", loadWarehouses);
+    document.getElementById("warehouses-refresh").addEventListener("click", loadWarehouses);
+    document.getElementById("catalog-form").addEventListener("submit", saveProduct);
+    document.getElementById("c-cancel").addEventListener("click", resetProductForm);
+    document.getElementById("c-search").addEventListener("input", loadCatalog);
+    document.getElementById("catalog-refresh").addEventListener("click", loadCatalog);
     document.getElementById("user-form").addEventListener("submit", createUser);
     document.getElementById("u-role").addEventListener("change", toggleWarehouseField);
     document.getElementById("users-refresh").addEventListener("click", loadUsers);

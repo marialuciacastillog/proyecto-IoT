@@ -121,6 +121,19 @@ def validateRoleAndWarehouse(role, warehouseId):
         raise HTTPException(status_code=400, detail="El rol " + role + " no va asociado a una bodega")
 
 
+# Etapa B: la bodega debe estar registrada y activa en el catálogo (tabla warehouses de la central)
+def checkWarehouseRegistered(cursor, warehouseId):
+    if warehouseId:
+        cursor.execute("SELECT to_regclass('public.warehouses') IS NOT NULL")
+        if cursor.fetchone()[0]:
+            cursor.execute("SELECT status FROM warehouses WHERE warehouse_id = %s", (warehouseId,))
+            row = cursor.fetchone()
+            if row is None:
+                raise HTTPException(status_code=400, detail="La bodega " + warehouseId + " no está registrada")
+            if row[0] != "ACTIVE":
+                raise HTTPException(status_code=400, detail="La bodega " + warehouseId + " está archivada")
+
+
 def buildToken(user):
     now = datetime.now(timezone.utc)
     claims = {
@@ -240,6 +253,8 @@ def createUser(request: UserCreate, admin=Depends(requireRoles(ADMIN_GLOBAL))):
     validatePassword(request.password)
     connection = connectDatabase()
     try:
+        with connection.cursor() as plainCursor:
+            checkWarehouseRegistered(plainCursor, warehouseId)
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("SELECT 1 FROM users WHERE username = %s", (request.username,))
             if cursor.fetchone() is not None:
@@ -287,6 +302,8 @@ def updateUser(user_id: int, request: UserUpdate, admin=Depends(requireRoles(ADM
             if request.role is not None or request.warehouse_id is not None:
                 warehouseId = request.warehouse_id.lower() if request.warehouse_id else None
                 validateRoleAndWarehouse(role, warehouseId)
+                with connection.cursor() as plainCursor:
+                    checkWarehouseRegistered(plainCursor, warehouseId)
             fullName = request.full_name or user["full_name"]
             active = user["active"] if request.active is None else request.active
             cursor.execute("UPDATE users SET full_name = %s, role = %s, warehouse_id = %s, active = %s, "

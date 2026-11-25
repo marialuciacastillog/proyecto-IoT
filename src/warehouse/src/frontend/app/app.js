@@ -1,6 +1,7 @@
 // Front de una bodega. La misma imagen corre en wh-001, wh-002 y wh-003:
 // Nginx manda /api/... al balanceador de ESTA bodega, así que cada front solo ve su propia bodega.
 const API = "/api";
+const CATALOG = "/catalog";  // Etapa B: catálogo global de la central (Nginx lo reenvía a la IP elástica)
 const LOW_STOCK = 10;  // mismo umbral que el reporte low_stock de la central
 
 // config.js lo genera Nginx con la variable WAREHOUSE_ID del contenedor
@@ -10,7 +11,8 @@ const state = {
     warehouseId: config.warehouseId && !config.warehouseId.includes("$") ? config.warehouseId : "",
     products: [],
     stock: {},       // id del producto -> { quantity, reserved_quantity }
-    movements: []    // todos los movimientos de la bodega
+    movements: [],   // todos los movimientos de la bodega
+    catalog: []      // Etapa B: productos del catálogo global
 };
 
 
@@ -58,6 +60,27 @@ async function api(path, options) {
         throw new Error(detail);
     }
     return { data: data, headers: response.headers };
+}
+
+// Etapa B: lo mismo que api() pero contra el catálogo de la central
+async function catalogApi(path, options) {
+    const request = Object.assign({}, options);
+    request.headers = Object.assign({}, request.headers, authHeader());
+    const response = await fetch(CATALOG + path, request);
+    let data = null;
+    try { data = await response.json(); } catch (error) { data = null; }
+    if (!response.ok) {
+        let detail = "Error " + response.status;
+        if (data && data.detail) {
+            detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+        }
+        throw new Error(detail);
+    }
+    return data;
+}
+
+function formatMoney(value) {
+    return value === null || value === undefined ? "-" : "$" + Number(value).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 }
 
 const movementLabels = {
@@ -178,6 +201,10 @@ function startApp(session) {
         checkHealth();
     } else {
         refresh();
+        loadWarehouseTitle();
+        if (hasRole("ADMIN_BODEGA")) {
+            loadCatalog();
+        }
     }
 }
 
@@ -231,13 +258,14 @@ function renderProducts() {
     const list = state.products.filter(p => matches(p, text));
     const body = document.getElementById("products-body");
     if (list.length === 0) {
-        body.innerHTML = '<tr><td colspan="5" class="empty">No hay productos</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" class="empty">Esta bodega todavía no maneja productos</td></tr>';
         return;
     }
     body.innerHTML = list.map(p =>
         "<tr><td>" + p.id + "</td><td><strong>" + esc(p.sku) + "</strong></td><td>" + esc(p.name) +
-        (p.description ? '<span class="sub">' + esc(p.description) + "</span>" : "") +
-        "</td><td>" + esc(p.category || "-") + "</td><td>" + esc(p.unit) + "</td></tr>"
+        '<span class="sub">' + esc(p.unit) + (p.description ? " · " + esc(p.description) : "") + "</span>" +
+        "</td><td>" + esc(p.category || "-") + "</td><td>" + esc(p.supplier || "-") + '</td><td class="num">' +
+        formatMoney(p.sale_price) + '</td><td class="num">' + formatMoney(p.wholesale_price) + "</td></tr>"
     ).join("");
 }
 
@@ -320,30 +348,73 @@ function openProductHistory(productId) {
 
 // ---------- Formularios ----------
 
-async function createProduct(event) {
+// ---------- Etapa B: agregar productos del catálogo ----------
+
+async function loadCatalog() {
+    try {
+        state.catalog = await catalogApi("/products");
+    } catch (error) {
+        state.catalog = [];
+    }
+    renderAssignSelect();
+}
+
+// Solo se ofrecen los productos que esta bodega todavía no maneja
+function renderAssignSelect() {
+    const select = document.getElementById("a-product");
+    const pending = state.catalog.filter(p => !p.warehouses.includes(state.warehouseId));
+    if (pending.length === 0) {
+        select.innerHTML = '<option value="">No hay productos nuevos en el catálogo</option>';
+        document.getElementById("a-detail").textContent = "";
+        return;
+    }
+    select.innerHTML = pending.map(p =>
+        '<option value="' + esc(p.product_code) + '">' + esc(p.product_code) + " · " + esc(p.name) + "</option>"
+    ).join("");
+    showAssignDetail();
+}
+
+function showAssignDetail() {
+    const product = state.catalog.find(p => p.product_code === document.getElementById("a-product").value);
+    if (product) {
+        document.getElementById("a-detail").textContent = product.category + " · Proveedor: " + product.supplier +
+            " · Venta " + formatMoney(product.sale_price) + " · Mayorista " + formatMoney(product.wholesale_price);
+        document.getElementById("a-quantity").value = product.initial_quantity;
+    }
+}
+
+async function assignProduct(event) {
     event.preventDefault();
     const form = event.target;
-    const payload = {
-        sku: document.getElementById("p-sku").value.trim(),
-        name: document.getElementById("p-name").value.trim(),
-        unit: document.getElementById("p-unit").value.trim(),
-        category: document.getElementById("p-category").value.trim() || null,
-        description: document.getElementById("p-description").value.trim() || null
-    };
+    const code = document.getElementById("a-product").value;
+    if (!code) {
+        return;
+    }
     form.querySelector("button").disabled = true;
     try {
-        const result = await api("/products", {
+        const result = await catalogApi("/warehouses/" + state.warehouseId + "/products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ product_code: code, initial_quantity: parseInt(document.getElementById("a-quantity").value, 10) })
         });
-        toast("Producto " + result.data.sku + " creado con inventario en 0");
-        form.reset();
-        await loadAll();
+        toast(result.message);
+        await loadCatalog();
+        // El producto llega por el aviso del catálogo: se vuelve a cargar en unos segundos
+        setTimeout(loadAll, 4000);
+        setTimeout(loadAll, 10000);
     } catch (error) {
         toast(error.message, "error");
     }
     form.querySelector("button").disabled = false;
+}
+
+async function loadWarehouseTitle() {
+    try {
+        const warehouse = await catalogApi("/warehouses/" + state.warehouseId);
+        document.getElementById("warehouse-title").textContent = "· " + warehouse.name;
+    } catch (error) {
+        document.getElementById("warehouse-title").textContent = "";
+    }
 }
 
 async function createMovement(event) {
@@ -391,7 +462,8 @@ async function resetCache() {
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("#nav button").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
     document.querySelectorAll("[data-refresh]").forEach(b => b.addEventListener("click", refresh));
-    document.getElementById("product-form").addEventListener("submit", createProduct);
+    document.getElementById("assign-form").addEventListener("submit", assignProduct);
+    document.getElementById("a-product").addEventListener("change", showAssignDetail);
     document.getElementById("movement-form").addEventListener("submit", createMovement);
     document.getElementById("reset-cache-btn").addEventListener("click", resetCache);
     document.getElementById("product-search").addEventListener("input", renderProducts);

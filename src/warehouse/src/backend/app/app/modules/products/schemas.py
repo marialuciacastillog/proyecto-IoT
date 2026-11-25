@@ -1,4 +1,5 @@
 from typing import Optional
+from decimal import Decimal
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -16,6 +17,10 @@ class ProductResponse(BaseModel):
     description: Optional[str]
     category: Optional[str]
     unit: str
+    supplier: Optional[str] = None
+    cost: Optional[Decimal] = None
+    sale_price: Optional[Decimal] = None
+    wholesale_price: Optional[Decimal] = None
     created_at: datetime
     updated_at: datetime
 

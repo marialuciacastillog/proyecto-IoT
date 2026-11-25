@@ -1,23 +1,19 @@
 from typing import List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.modules.products.schemas import ProductCreate, ProductResponse
+from app.modules.products.schemas import ProductResponse
 from app.modules.products.products_service import ProductService
 from app.modules.auth.auth import requireRoles, checkWarehouse
-from app.modules.auth.roles import ADMIN_GLOBAL, ADMIN_BODEGA, ALL_ROLES
+from app.modules.auth.roles import ALL_ROLES
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-# Etapa A: los productos que maneja la bodega los define su Administrador por Bodega (RF-08)
-@router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
-def create_product(payload: ProductCreate, db: Session = Depends(get_db),
-                   user=Depends(requireRoles(ADMIN_GLOBAL, ADMIN_BODEGA))):
-    checkWarehouse(user, settings.WAREHOUSE_ID)
-    service = ProductService(db)
-    return service.create_product_with_inventory(payload)
+# Etapa B: los productos ya no se crean aquí. Los crea el Administrador Global en el catálogo de la
+# central (RF-04) y el Administrador por Bodega elige cuáles maneja su bodega (RF-08). La bodega los
+# recibe por el aviso PRODUCT_ASSIGNED (ver app/modules/catalog/worker.py).
 
 
 @router.get("", response_model=List[ProductResponse])

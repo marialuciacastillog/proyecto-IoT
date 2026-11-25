@@ -41,7 +41,7 @@ module "ec2" {
   jwt_public_key_pem  = tls_private_key.jwt.public_key_pem
 
   # Las suscripciones de SNS deben existir antes de que las bodegas empiecen a publicar
-  depends_on = [module.sns_events, module.iot_events]
+  depends_on = [module.sns_events, module.iot_events, module.catalog_events]
 }
 
 module "sqs_sync" {

@@ -57,6 +57,10 @@ docker compose up -d --build
 cd /opt/proyecto/src/central_identity
 docker compose up -d --build
 
+# 4.1d Etapa B: catálogo (bodegas y productos) en el puerto 8007 + publicador de avisos
+cd /opt/proyecto/src/central_catalog
+docker compose up -d --build
+
 # 4.2 Después los reportes, que usan la red de la central
 export REPORTS_QUEUE_URL="${reports_queue_url}"
 export REPORTS_BUCKET_NAME="${reports_bucket_name}"

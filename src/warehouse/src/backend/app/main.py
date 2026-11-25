@@ -5,6 +5,7 @@ from app.modules.products.products_controller import router as products_controll
 from app.modules.inventory.inventory_controller import router as inventory_controller
 from app.modules.cache.cache_controller import router as cache_controller
 from app.modules.transfers.models import TransferCommandEntity  # Fase 6: crea la tabla transfer_commands
+from app.modules.catalog.models import CatalogEventEntity  # Etapa B: crea la tabla catalog_events_applied
 
 import socket
 import time

@@ -62,3 +62,18 @@
 - Cada quien cambia su contraseña con `POST /auth/change-password`. Reglas: mínimo 8 caracteres, con letras y números. 5 intentos fallidos bloquean 5 minutos.
 - El primer admin es `admin`; su contraseña inicial está en la central, en `/opt/proyecto/secrets/admin_password.txt` (solo con sudo).
 - Los movimientos guardan `created_by` y el evento de sincronización lleva `performedBy`. Las transferencias guardan `requested_by` y `justification`.
+
+## Etapa B - Bodegas y catálogo global
+
+- Servicio de catálogo en la central, puerto **8007** (`src/central_catalog`). El front central lo usa por `/svc/catalog/` y el de bodega por `/catalog/`.
+- Bodegas (RF-02): `GET/POST /warehouses`, `GET/PATCH/DELETE /warehouses/{id}`. Campos: `warehouse_id` (wh-004), `nit` (con dígito de verificación DIAN), `name`, `location`, `description`, `manager_name`, `manager_username`.
+  Solo el Admin Global crea, edita y elimina. Al arrancar se crean wh-001, wh-002 y wh-003 con datos de ejemplo.
+- Eliminar (RF-03): si la bodega tiene usuarios activos -> 409. Si tiene historia (productos, inventario, auditoría o transferencias) -> se archiva (`status = ARCHIVED`). Si no tiene nada -> se borra.
+  Una bodega archivada no acepta usuarios, productos ni transferencias nuevas. Se reactiva con `PATCH {"status": "ACTIVE"}`.
+- Catálogo (RF-04): `GET/POST /products`, `GET/PATCH /products/{code}`. Campos: `product_code`, `name`, `category`, `description`, `supplier`, `unit`, `cost`, `sale_price`, `wholesale_price`, `initial_quantity`.
+  Regla: `wholesale_price <= sale_price`. Solo el Admin Global crea y edita; todos los roles consultan.
+- Productos de cada bodega (RF-08): el Admin por Bodega hace `POST /warehouses/{su bodega}/products` con `{"product_code", "initial_quantity"}` (202).
+  La central guarda el aviso en `catalog_outbox`, el publicador lo manda a SNS `catalog-events` y cada bodega lo recibe en su cola `catalog-wh-00X`.
+  El worker de la bodega crea el producto y registra la cantidad inicial como un RECEIPT a nombre de quien la pidió.
+- Avisos: `PRODUCT_ASSIGNED` (para una bodega) y `PRODUCT_UPDATED` (cambio en el catálogo, llega a todas las bodegas que tienen el producto). Son idempotentes por `eventId`.
+- La bodega ya no crea productos sueltos (se quitó `POST /products` de la API de bodega).

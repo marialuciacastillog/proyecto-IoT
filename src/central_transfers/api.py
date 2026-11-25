@@ -8,7 +8,19 @@ from auth import requireRoles, checkWarehouse
 from roles import ADMIN_GLOBAL, ADMIN_BODEGA, ALL_ROLES, WAREHOUSE_ROLES
 
 app = FastAPI(title="Transferencias entre bodegas (Fase 6)")
-warehouses = ["wh-001", "wh-002", "wh-003"]
+defaultWarehouses = ["wh-001", "wh-002", "wh-003"]
+
+
+# Etapa B: las bodegas válidas son las ACTIVAS del registro de la central (catálogo).
+# Si el catálogo todavía no ha creado su tabla, se usan las 3 de siempre.
+def activeWarehouses(connection):
+    warehouses = defaultWarehouses
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT to_regclass('public.warehouses') IS NOT NULL")
+        if cursor.fetchone()[0]:
+            cursor.execute("SELECT warehouse_id FROM warehouses WHERE status = 'ACTIVE'")
+            warehouses = [row[0] for row in cursor.fetchall()]
+    return warehouses
 
 
 class TransferRequest(BaseModel):
@@ -31,13 +43,14 @@ def health():
 @app.post("/transfers", status_code=202)
 def createTransfer(request: TransferRequest, user=Depends(requireRoles(ADMIN_GLOBAL, ADMIN_BODEGA))):
     checkWarehouse(user, request.source_warehouse)
-    if request.source_warehouse not in warehouses or request.destination_warehouse not in warehouses:
-        raise HTTPException(status_code=400, detail="Bodega inválida. Usa wh-001, wh-002 o wh-003")
     if request.source_warehouse == request.destination_warehouse:
         raise HTTPException(status_code=400, detail="El origen y el destino deben ser distintos")
     transferId = "TR-" + uuid.uuid4().hex[:8].upper()
     connection = connectDatabase()
     try:
+        warehouses = activeWarehouses(connection)
+        if request.source_warehouse not in warehouses or request.destination_warehouse not in warehouses:
+            raise HTTPException(status_code=400, detail="Bodega inválida o archivada. Activas: " + ", ".join(warehouses))
         with connection.cursor() as cursor:
             cursor.execute(
                 """INSERT INTO transfers (transfer_id, source_warehouse, destination_warehouse,

@@ -10,7 +10,7 @@
     <aside class="sidebar">
         <div class="brand">
             Warehouse Cloud Platform
-            <small>Bodega <span id="warehouse-name">...</span></small>
+            <small>Bodega <span id="warehouse-name">...</span> <span id="warehouse-title"></span></small>
         </div>
         <nav class="nav" id="nav">
             <button data-view="resumen" class="active">Resumen</button>
@@ -71,32 +71,29 @@
             <div class="page-header">
                 <div>
                     <h1>Productos</h1>
-                    <p>Catálogo de esta bodega. El SKU debe ser el mismo en todas las bodegas (es el código que viaja a la central).</p>
+                    <p>Productos que maneja esta bodega. Vienen del catálogo global: el código es el mismo en todas las bodegas.</p>
                 </div>
             </div>
             <div class="grid grid-2">
-                <div class="card" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">
-                    <h2>Nuevo producto</h2>
-                    <form id="product-form">
-                        <div class="form-row">
-                            <div class="field"><label for="p-sku">SKU</label><input id="p-sku" required placeholder="P-001"></div>
-                            <div class="field"><label for="p-unit">Unidad</label><input id="p-unit" required placeholder="UNIDADES"></div>
-                        </div>
-                        <div class="field"><label for="p-name">Nombre</label><input id="p-name" required placeholder="Caja de herramientas"></div>
-                        <div class="field"><label for="p-category">Categoría</label><input id="p-category" placeholder="Herramientas"></div>
-                        <div class="field"><label for="p-description">Descripción</label><textarea id="p-description" placeholder="Opcional"></textarea></div>
-                        <button class="btn btn-primary" type="submit">Crear producto</button>
+                <div class="card" data-roles="ADMIN_BODEGA">
+                    <h2>Agregar del catálogo</h2>
+                    <p class="sub">Los productos los crea el Administrador Global en el catálogo de la central. Aquí eliges cuáles maneja esta bodega y con cuántas unidades entran.</p>
+                    <form id="assign-form" class="mt">
+                        <div class="field"><label for="a-product">Producto del catálogo</label><select id="a-product" required></select></div>
+                        <p class="sub" id="a-detail"></p>
+                        <div class="field"><label for="a-quantity">Cantidad inicial</label><input id="a-quantity" type="number" min="0" required></div>
+                        <button class="btn btn-primary" type="submit">Agregar a esta bodega</button>
                     </form>
                 </div>
                 <div class="card">
                     <div class="card-header">
-                        <h2>Catálogo</h2>
-                        <input id="product-search" type="search" placeholder="Buscar por SKU, nombre o categoría">
+                        <h2>Productos de esta bodega</h2>
+                        <input id="product-search" type="search" placeholder="Buscar por código, nombre o categoría">
                     </div>
                     <div class="table-wrap">
                         <table>
-                            <thead><tr><th>ID</th><th>SKU</th><th>Nombre</th><th>Categoría</th><th>Unidad</th></tr></thead>
-                            <tbody id="products-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                            <thead><tr><th>ID</th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Proveedor</th><th class="num">Venta</th><th class="num">Mayorista</th></tr></thead>
+                            <tbody id="products-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
                         </table>
                     </div>
                 </div>

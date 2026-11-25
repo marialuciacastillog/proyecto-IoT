@@ -76,6 +76,8 @@ services:
       - WAREHOUSE_ID=wh-001
       # Etapa A: dónde está el servicio de identidad (IP elástica de la central, la pone Terraform)
       - IDENTITY_TARGET=${CENTRAL_IP:-127.0.0.1}:8008
+      # Etapa B: catálogo global de la central
+      - CATALOG_TARGET=${CENTRAL_IP:-127.0.0.1}:8007
     # Mapeamos la ruta /api de forma transparente mediante Nginx para no requerir configuraciones cruzadas de puertos
     depends_on:
       - wh_001_lb
@@ -108,6 +110,25 @@ services:
       dockerfile: Dockerfile
     container_name: transfer_worker_${WH_ID}
     command: python -m app.modules.transfers.worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@wh_001_postgres_db:5432/warehouse_db
+      - WAREHOUSE_ID=wh-001
+      - REDIS_URL=redis://wh_001_redis:6379/0
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ~/.aws:/root/.aws:ro
+    depends_on:
+      wh_001_postgres_db:
+        condition: service_healthy
+  # Etapa B: aplica los avisos del catálogo de la central (productos asignados y actualizados)
+  wh_001_catalog_worker:
+    build:
+      context: ./src/backend/app
+      dockerfile: Dockerfile
+    container_name: catalog_worker_${WH_ID}
+    command: python -m app.modules.catalog.worker
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@wh_001_postgres_db:5432/warehouse_db
       - WAREHOUSE_ID=wh-001
