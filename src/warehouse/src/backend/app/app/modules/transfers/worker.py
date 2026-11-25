@@ -11,6 +11,7 @@ from app.modules.sync.models import PendingEventEntity
 from app.modules.inventory.schemas import MovementCreate
 from app.modules.inventory.inventory_service import InventoryService
 from app.modules.transfers.models import TransferCommandEntity
+from app.modules.shared.correlation import currentCorrelationId
 
 # Fase 6 - Worker de transferencias de esta bodega.
 # Recibe órdenes de la central por su cola (transfer-commands-wh-00X),
@@ -53,6 +54,8 @@ def saveResult(db, key, command, ok, reason):
 
 
 def applyCommand(command):
+    # Fase 3: los movimientos de una transferencia llevan el id de la transferencia como correlationId
+    currentCorrelationId.set(command["transferId"])
     db = SessionLocal()
     key = command["transferId"] + ":" + command["command"]
     result = {"ok": False, "reason": "", "repeated": False}

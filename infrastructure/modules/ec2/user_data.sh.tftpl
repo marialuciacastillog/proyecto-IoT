@@ -21,11 +21,17 @@ CONFIG
 # 3. Bajar el proyecto
 git clone ${repo_url} /opt/proyecto
 export SYNC_QUEUE_URL="${sync_queue_url}"
+export SYNC_TOPIC_ARN="${sync_topic_arn}"
 
 # 4. Levantar lo que le toca a esta máquina
 %{ if role == "central" ~}
 # 4.1 Primero la central (base de datos + worker): crea la red y el volumen
 cd /opt/proyecto/src/central_sync_worker
+docker compose up -d --build
+
+# 4.1b Fase 3: worker de auditoría (lee audit-queue, que recibe copia de cada evento por SNS)
+export AUDIT_QUEUE_URL="${audit_queue_url}"
+cd /opt/proyecto/src/central_audit_worker
 docker compose up -d --build
 
 # 4.2 Después los reportes, que usan la red de la central

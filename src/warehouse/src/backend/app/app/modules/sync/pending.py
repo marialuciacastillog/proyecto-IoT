@@ -2,6 +2,7 @@ import uuid
 from app.config import settings
 from app.modules.sync.models import PendingEventEntity
 from app.modules.products.models import ProductEntity
+from app.modules.shared.correlation import getCorrelationId
 
 # Guarda un evento pendiente. NO hace commit: se guarda en la misma transacción del movimiento.
 # Se manda el código del producto (sku, por ejemplo P-001) y no el id interno,
@@ -15,6 +16,8 @@ def savePendingEvent(db, productId, quantity):
     pendingEvent = PendingEventEntity(
         event_id=str(uuid.uuid4()),
         warehouse_id=settings.WAREHOUSE_ID,
+        event_type="INVENTORY_UPDATED",
+        correlation_id=getCorrelationId(),
         product_id=productCode,
         quantity=quantity,
         status="PENDING"

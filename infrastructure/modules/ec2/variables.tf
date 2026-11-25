@@ -32,3 +32,13 @@ variable "reports_bucket_name" {
   type        = string
   description = "Bucket donde se guardan los reportes"
 }
+
+variable "sync_topic_arn" {
+  type        = string
+  description = "ARN del tema SNS inventory-events (Fase 3)"
+}
+
+variable "audit_queue_url" {
+  type        = string
+  description = "URL de la cola audit-queue (Fase 3)"
+}

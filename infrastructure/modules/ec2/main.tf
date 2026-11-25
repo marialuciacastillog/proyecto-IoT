@@ -38,6 +38,8 @@ resource "aws_instance" "servers" {
     repo_url            = var.repo_url
     reports_queue_url   = var.reports_queue_url
     reports_bucket_name = var.reports_bucket_name
+    sync_topic_arn      = var.sync_topic_arn
+    audit_queue_url     = var.audit_queue_url
   })
   user_data_replace_on_change = true
 

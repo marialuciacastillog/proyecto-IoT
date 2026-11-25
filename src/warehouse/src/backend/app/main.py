@@ -9,6 +9,7 @@ from app.modules.transfers.models import TransferCommandEntity  # Fase 6: crea l
 import socket
 import time
 from fastapi import Request
+from app.modules.shared.correlation import currentCorrelationId, newCorrelationId
 
 
 # Fase 5: varias copias de la API arrancan a la vez; si dos crean las tablas al mismo tiempo,
@@ -46,4 +47,17 @@ app.include_router(cache_controller)
 async def addInstanceHeader(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Instance"] = instanceName
+    return response
+
+
+# Fase 3: cada petición lleva un correlationId. Si el cliente lo manda (encabezado X-Correlation-ID)
+# se usa ese; si no, se crea uno. Se devuelve en la respuesta para que el cliente lo vea.
+@app.middleware("http")
+async def addCorrelationId(request: Request, call_next):
+    correlationId = request.headers.get("X-Correlation-ID", "")
+    if correlationId == "":
+        correlationId = newCorrelationId()
+    currentCorrelationId.set(correlationId)
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlationId
     return response

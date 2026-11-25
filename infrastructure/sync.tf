@@ -35,6 +35,11 @@ module "ec2" {
   repo_url            = var.repo_url
   reports_queue_url   = module.sqs_reports.queue_url
   reports_bucket_name = module.s3_reports.bucket_name
+  sync_topic_arn      = module.sns_events.topic_arn
+  audit_queue_url     = module.sns_events.audit_queue_url
+
+  # Las suscripciones de SNS deben existir antes de que las bodegas empiecen a publicar
+  depends_on = [module.sns_events]
 }
 
 module "sqs_sync" {

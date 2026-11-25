@@ -1,0 +1,22 @@
+# Fase 3: worker de auditoría. Usa la base y la red de la central,
+# así que se prende DESPUÉS de src/central_sync_worker.
+services:
+  central_audit_worker:
+    build: .
+    container_name: central_audit_worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      - AUDIT_QUEUE_URL=${AUDIT_QUEUE_URL}
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+    networks:
+      - iot-central-network
+
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network

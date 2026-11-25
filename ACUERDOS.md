@@ -12,7 +12,9 @@
 - Región: us-east-1
 
 ## Mensaje de sincronización (bodega -> central)
-{ "eventId": "uuid", "warehouseId": "wh-001", "productId": "P-001", "quantity": 90, "createdAt": "2026-11-22T10:00:00" }
+{ "eventId": "uuid", "eventType": "INVENTORY_UPDATED", "correlationId": "COR-1A2B3C4D", "warehouseId": "wh-001", "productId": "P-001", "quantity": 90, "createdAt": "2026-11-22T10:00:00" }
+- Se publica en el tema SNS inventory-events, que copia el mensaje a sync-queue y audit-queue (Fase 3)
+- correlationId = sale del encabezado X-Correlation-ID de la petición (o se crea uno); en transferencias es el id de la transferencia
 - productId = código del producto (sku), igual en todas las bodegas
 - quantity = cantidad TOTAL después del movimiento
 

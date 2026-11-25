@@ -88,7 +88,7 @@ def processMessage(connection, sqsClient, message):
     try:
         event = json.loads(message["Body"])
         result = applyEvent(connection, event)
-        print(result, "|", event["warehouseId"], "producto", event["productId"], "cantidad", event["quantity"], "| evento", event["eventId"])
+        print(result, "|", event.get("eventType", "INVENTORY_UPDATED"), "|", event["warehouseId"], "producto", event["productId"], "cantidad", event["quantity"], "| correlationId", event.get("correlationId"))
         sqsClient.delete_message(QueueUrl=queueUrl, ReceiptHandle=message["ReceiptHandle"])
     except Exception as error:
         if connection.closed == 0:

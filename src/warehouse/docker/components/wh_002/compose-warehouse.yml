@@ -84,6 +84,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@wh_002_postgres_db:5432/warehouse_db
       - WAREHOUSE_ID=wh-002
       - SYNC_QUEUE_URL=${SYNC_QUEUE_URL}
+      - SYNC_TOPIC_ARN=${SYNC_TOPIC_ARN}
       - AWS_PROFILE=lab1
       - AWS_DEFAULT_REGION=us-east-1
       - PYTHONUNBUFFERED=1

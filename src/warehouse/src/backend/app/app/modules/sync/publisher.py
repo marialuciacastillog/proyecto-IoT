@@ -10,6 +10,8 @@ from app.modules.shared.utils import schemas_utils
 def buildMessage(event):
     message = {
         "eventId": event.event_id,
+        "eventType": event.event_type,
+        "correlationId": event.correlation_id,
         "warehouseId": event.warehouse_id,
         "productId": event.product_id,
         "quantity": event.quantity,
@@ -18,9 +20,18 @@ def buildMessage(event):
     return json.dumps(message)
 
 
-# Envía hasta 10 pendientes. Solo marca SENT si SQS respondió bien.
+# Fase 3: si hay tema SNS, se publica UNA vez en el tema y SNS lo copia a todas las colas
+# suscritas (sync-queue y audit-queue). Si no hay tema, se manda directo a sync-queue como antes.
+def sendMessage(awsClients, body):
+    if settings.SYNC_TOPIC_ARN != "":
+        awsClients["sns"].publish(TopicArn=settings.SYNC_TOPIC_ARN, Message=body)
+    else:
+        awsClients["sqs"].send_message(QueueUrl=settings.SYNC_QUEUE_URL, MessageBody=body)
+
+
+# Envía hasta 10 pendientes. Solo marca SENT si AWS respondió bien.
 # Si falla (sin internet, credenciales vencidas...), el evento sigue PENDING y se reintenta luego.
-def sendPendingEvents(sqsClient):
+def sendPendingEvents(awsClients):
     db = SessionLocal()
     sentCount = 0
     try:
@@ -32,12 +43,12 @@ def sendPendingEvents(sqsClient):
             .all()
         )
         for event in pendingEvents:
-            sqsClient.send_message(QueueUrl=settings.SYNC_QUEUE_URL, MessageBody=buildMessage(event))
+            sendMessage(awsClients, buildMessage(event))
             event.status = "SENT"
             event.sent_at = schemas_utils.current_utc_time()
             db.commit()
             sentCount = sentCount + 1
-            print("Enviado:", event.event_id, "producto", event.product_id, "cantidad", event.quantity)
+            print("Enviado:", event.event_type, event.event_id, "| correlationId", event.correlation_id, "| producto", event.product_id, "cantidad", event.quantity)
     except Exception as error:
         db.rollback()
         print("No se pudo enviar, se reintenta en 5 segundos:", error)
@@ -47,10 +58,13 @@ def sendPendingEvents(sqsClient):
 
 
 def main():
-    sqsClient = boto3.client("sqs", region_name=settings.AWS_REGION)
-    print("Publicador iniciado para", settings.WAREHOUSE_ID)
+    awsClients = {
+        "sqs": boto3.client("sqs", region_name=settings.AWS_REGION),
+        "sns": boto3.client("sns", region_name=settings.AWS_REGION)
+    }
+    print("Publicador iniciado para", settings.WAREHOUSE_ID, "| tema SNS:", settings.SYNC_TOPIC_ARN or "(ninguno, va directo a SQS)")
     while True:
-        sentCount = sendPendingEvents(sqsClient)
+        sentCount = sendPendingEvents(awsClients)
         if sentCount == 0:
             time.sleep(5)
 
