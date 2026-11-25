@@ -1,5 +1,7 @@
 import os
 import time
+import json
+import datetime
 import psycopg2
 
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
@@ -55,4 +57,11 @@ def changeStatus(cursor, transferId, newStatus, reason=""):
     cursor.execute(
         "INSERT INTO transfer_history (transfer_id, status, reason, created_at) VALUES (%s, %s, %s, clock_timestamp())",
         (transferId, newStatus, reason))
-    print("Transferencia", transferId, "->", newStatus, reason)
+    # Fase 11: log estructurado, como el ejemplo de la fase (transfer_completed, transfer_failed, ...)
+    level = "INFO"
+    if newStatus in ("FAILED", "COMPENSATING"):
+        level = "WARNING"
+    line = {"timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), "service": "transfer-orchestrator",
+            "level": level, "event": "transfer_" + newStatus.lower(), "transfer_id": transferId,
+            "correlation_id": transferId, "reason": reason}
+    print(json.dumps(line, ensure_ascii=False), flush=True)

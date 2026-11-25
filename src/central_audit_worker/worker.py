@@ -6,13 +6,22 @@ import os
 import time
 import boto3
 import psycopg2
+from datetime import datetime, timezone
 
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
 queueUrl = os.environ.get("AUDIT_QUEUE_URL", "")
 awsRegion = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 # Fase 10: la DLQ se llama igual que la cola + "-dlq" (así se crea en Terraform)
 dlqUrl = os.environ.get("DLQ_URL", queueUrl + "-dlq")
+SERVICE = "audit-worker"
 requiredFields = ["eventId", "warehouseId", "productId", "quantity", "createdAt"]
+
+# Fase 11: logs estructurados (una línea JSON por evento)
+def logJson(level, event, fields):
+    line = {"timestamp": datetime.now(timezone.utc).isoformat(), "service": SERVICE, "level": level, "event": event}
+    line.update(fields)
+    print(json.dumps(line, ensure_ascii=False), flush=True)
+
 
 createAuditSql = """
     CREATE TABLE IF NOT EXISTS audit_log (
@@ -41,7 +50,7 @@ def connectDatabase():
         try:
             connection = psycopg2.connect(databaseUrl)
         except Exception as error:
-            print("Esperando la base de datos central:", error)
+            logJson("ERROR", "database_unavailable", {"message": "Esperando la base de datos central", "error": str(error)})
             time.sleep(3)
     return connection
 
@@ -100,16 +109,24 @@ def processMessage(connection, sqsClient, message):
     try:
         if problem != "":
             sendToDlq(sqsClient, message, problem)
-            print("INVÁLIDO -> DLQ sin reintentar:", problem)
+            logJson("WARNING", "message_to_dlq", {"result": "INVÁLIDO", "reason": problem, "retry": False})
         else:
             saved = saveEvent(connection, event)
             result = "AUDITADO" if saved else "REPETIDO"
-            print(result, "|", event.get("eventType"), "|", event["warehouseId"], event["productId"], "cantidad", event["quantity"], "| correlationId", event.get("correlationId"))
+            logJson("INFO", "audit_saved", {
+                "result": result,
+                "event_id": event["eventId"],
+                "event_type": event.get("eventType"),
+                "warehouse_id": event["warehouseId"],
+                "product_id": event["productId"],
+                "quantity": event["quantity"],
+                "correlation_id": event.get("correlationId")
+            })
         sqsClient.delete_message(QueueUrl=queueUrl, ReceiptHandle=message["ReceiptHandle"])
     except Exception as error:
         if connection.closed == 0:
             connection.rollback()
-        print("Error en el intento", attempt, "de 3, SQS lo reintentará:", error)
+        logJson("ERROR", "processing_failed", {"attempt": int(attempt), "max_attempts": 3, "error": str(error)})
 
 
 def main():
@@ -118,7 +135,7 @@ def main():
         cursor.execute(createAuditSql)
     connection.commit()
     sqsClient = boto3.client("sqs", region_name=awsRegion)
-    print("Worker de auditoría iniciado")
+    logJson("INFO", "worker_started", {"queue": queueUrl})
     while True:
         if connection.closed != 0:
             connection = connectDatabase()
@@ -128,7 +145,7 @@ def main():
             for message in response.get("Messages", []):
                 processMessage(connection, sqsClient, message)
         except Exception as error:
-            print("No se pudo leer la cola, se reintenta en 5 segundos:", error)
+            logJson("ERROR", "queue_unavailable", {"message": "No se pudo leer la cola, se reintenta en 5 segundos", "error": str(error)})
             time.sleep(5)
 
 

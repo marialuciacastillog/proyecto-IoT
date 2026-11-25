@@ -10,6 +10,8 @@ import socket
 import time
 from fastapi import Request
 from app.modules.shared.correlation import currentCorrelationId, newCorrelationId
+from app.modules.shared.logger import logJson
+from app.config import settings
 
 
 # Fase 5: varias copias de la API arrancan a la vez; si dos crean las tablas al mismo tiempo,
@@ -58,6 +60,21 @@ async def addCorrelationId(request: Request, call_next):
     if correlationId == "":
         correlationId = newCorrelationId()
     currentCorrelationId.set(correlationId)
+    start = time.perf_counter()
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlationId
+    # Fase 11: una línea de log por petición, con cuánto tardó (no se registra /health)
+    if request.url.path != "/health":
+        level = "INFO"
+        if response.status_code >= 500:
+            level = "ERROR"
+        logJson("warehouse-api", level, "http_request", {
+            "warehouse_id": settings.WAREHOUSE_ID,
+            "instance": instanceName,
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "correlation_id": correlationId
+        })
     return response
