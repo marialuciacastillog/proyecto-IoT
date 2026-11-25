@@ -25,3 +25,13 @@ SQS lo vuelve a entregar a los 30 s y después de 3 intentos lo pasa solo a la D
 | Producto inexistente | No | Sí | No | Reintentar no hace aparecer el producto; no se apartó nada, no hay qué compensar |
 | Mensaje duplicado | No hace falta | No | No | event_id + processed_events: la segunda vez se ignora |
 | Redis caído | No | No | No | Se lee de PostgreSQL; Redis solo acelera |
+
+## Estrategia de la mensajería (SQS en lugar de RabbitMQ)
+
+- Retry: si el worker no borra el mensaje, SQS lo vuelve a entregar a los 30 s (visibility timeout).
+  Máximo 3 intentos (maxReceiveCount = 3); después va a la DLQ.
+- Persistencia: los mensajes se guardan en la cola hasta 14 días. Si un worker o la central se caen,
+  los mensajes esperan ahí. En la bodega, además, cada evento queda en pending_events hasta que
+  AWS confirma que lo recibió, así que tampoco se pierde si se cae el internet.
+- Recuperación: el worker se reconecta solo a la base cuando vuelve. Lo que está en la DLQ queda
+  guardado con su motivo para revisarlo, corregirlo y volver a mandarlo a la cola principal.
