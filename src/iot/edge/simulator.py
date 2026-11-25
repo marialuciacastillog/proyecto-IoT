@@ -3,6 +3,8 @@
 # A propósito simula dos problemas reales:
 #   - duplicados: a veces el sensor reenvía la misma lectura (mismo event_id)
 #   - fuera de orden: a veces una lectura se retrasa y llega después de la siguiente
+# Cada sensor guarda su último sequence_number en disco (como un sensor real en su memoria flash):
+# si se reinicia, sigue contando desde ahí y no repite event_id que ya existen.
 import json
 import os
 import random
@@ -15,6 +17,7 @@ warehouses = os.environ.get("IOT_WAREHOUSES", "WH-001").split(",")
 interval = float(os.environ.get("SENSOR_INTERVAL", "2"))
 duplicateRate = float(os.environ.get("DUPLICATE_RATE", "0.02"))
 outOfOrderRate = float(os.environ.get("OUT_OF_ORDER_RATE", "0.02"))
+statePath = os.environ.get("STATE_PATH", "/state/sequences.json")
 
 sensorTypes = {"TEMP": "temperature", "HUM": "humidity", "MOV": "movement", "DOOR": "opening", "ENER": "energy"}
 sensorsPerType = 4
@@ -35,13 +38,34 @@ def readValue(prefix):
     return value
 
 
+def loadSequences():
+    sequences = {}
+    if os.path.exists(statePath):
+        with open(statePath) as stateFile:
+            sequences = json.load(stateFile)
+    return sequences
+
+
+# Se escribe en un archivo temporal y luego se renombra, para no dejar el archivo a medias
+def saveSequences(sensors):
+    sequences = {}
+    for sensor in sensors:
+        sequences[sensor["warehouseId"] + "|" + sensor["sensorId"]] = sensor["sequence"]
+    with open(statePath + ".tmp", "w") as stateFile:
+        json.dump(sequences, stateFile)
+    os.replace(statePath + ".tmp", statePath)
+
+
 def buildSensors():
+    saved = loadSequences()
     sensors = []
     for warehouseId in warehouses:
         for prefix in sensorTypes:
             for number in range(1, sensorsPerType + 1):
+                sensorId = prefix + "-" + str(number).zfill(3)
+                sequence = saved.get(warehouseId + "|" + sensorId, 0)
                 sensors.append({"warehouseId": warehouseId, "prefix": prefix,
-                                "sensorId": prefix + "-" + str(number).zfill(3), "sequence": 0, "held": None})
+                                "sensorId": sensorId, "sequence": sequence, "held": None})
     return sensors
 
 
@@ -76,7 +100,8 @@ def main():
             time.sleep(2)
     client.loop_start()
     sensors = buildSensors()
-    print("Simulador iniciado:", len(sensors), "sensores en", warehouses, "| cada", interval, "s", flush=True)
+    print("Simulador iniciado:", len(sensors), "sensores en", warehouses, "| cada", interval, "s",
+          "| sigue desde el sequence_number", sensors[0]["sequence"], flush=True)
     while True:
         for sensor in sensors:
             event = buildEvent(sensor)
@@ -89,6 +114,7 @@ def main():
                     sensor["held"] = None
                 if random.random() < duplicateRate:
                     publish(client, event)            # el mismo evento otra vez: duplicado
+        saveSequences(sensors)
         time.sleep(interval)
 
 

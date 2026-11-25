@@ -1,0 +1,73 @@
+===== Sensores y bodegas =====
+ bodegas | sensores 
+---------+----------
+       5 |      100
+(1 row)
+
+ warehouse_id | sensores 
+--------------+----------
+ WH-001       |       20
+ WH-002       |       20
+ WH-003       |       20
+ WH-004       |       20
+ WH-005       |       20
+(5 rows)
+
+===== Throughput y latencia (último minuto) =====
+ lecturas | lecturas_por_segundo | latencia_promedio_ms | latencia_p95_ms | latencia_max_ms 
+----------+----------------------+----------------------+-----------------+-----------------
+     3638 |                 60.6 |                10524 |           61310 |           78707
+(1 row)
+
+===== Pérdida, duplicados y fuera de orden (desde el inicio) =====
+ esperadas | recibidas | perdidas 
+-----------+-----------+----------
+     45075 |     45075 |        0
+(1 row)
+
+   contador   | value 
+--------------+-------
+ duplicates   |   893
+ out_of_order |  3538
+(2 rows)
+
+ guardadas | distintas 
+-----------+-----------
+     45078 |     45078
+(1 row)
+
+===== Estado final consistente (el último dato de cada sensor es el de mayor sequence_number) =====
+ sensores | con_el_dato_mas_nuevo 
+----------+-----------------------
+      100 |                   100
+(1 row)
+
+===== Alertas =====
+          regla          | alertas 
+-------------------------+---------
+ Consumo de energía alto |     938
+ Humedad alta            |     882
+ Temperatura alta        |     218
+(3 rows)
+
+===== Analytics (último minuto completo, temperatura) =====
+ warehouse_id | lecturas | promedio | minimo | maximo 
+--------------+----------+----------+--------+--------
+ WH-001       |      120 |     22.2 |    9.9 |     32
+ WH-002       |      120 |     22.4 |     13 |   30.9
+ WH-003       |      120 |     21.5 |    8.9 |   31.5
+ WH-004       |      120 |     21.3 |   10.6 |   30.6
+ WH-005       |      120 |     22.4 |   11.7 |   33.6
+(5 rows)
+
+===== Colas IoT (esperando / en proceso) =====
+iot-storage -> 18	9
+iot-alerts -> 0	0
+iot-analytics -> 52	0
+iot-storage-dlq -> 0	0
+iot-alerts-dlq -> 0	0
+iot-analytics-dlq -> 0	0
+===== Buffer de cada gateway =====
+wh-001: {"timestamp": "2026-11-25T12:49:40.876024+00:00", "service": "iot-gateway", "gateway": "WH-001", "level": "INFO", "event": "gateway_stats", "received": 9362, "sent": 9340, "failed_sends": 32, "buffered": 22}
+wh-002: {"timestamp": "2026-11-25T12:49:42.375903+00:00", "service": "iot-gateway", "gateway": "WH-002", "level": "INFO", "event": "gateway_stats", "received": 9400, "sent": 9400, "failed_sends": 33, "buffered": 0}
+wh-003: {"timestamp": "2026-11-25T12:49:40.824331+00:00", "service": "iot-gateway", "gateway": "WH-003,WH-004,WH-005", "level": "INFO", "event": "gateway_stats", "received": 28251, "sent": 28251, "failed_sends": 37, "buffered": 0}

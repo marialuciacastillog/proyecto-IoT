@@ -18,7 +18,11 @@ services:
       - MQTT_HOST=mqtt_broker
       - IOT_WAREHOUSES=${IOT_WAREHOUSES:-WH-001}
       - SENSOR_INTERVAL=${SENSOR_INTERVAL:-2}
+      - STATE_PATH=/state/sequences.json
       - PYTHONUNBUFFERED=1
+    # Aquí cada sensor guarda su último sequence_number (sobrevive a reinicios)
+    volumes:
+      - iot_sensor_state:/state
     depends_on:
       - mqtt_broker
 
@@ -43,5 +47,6 @@ services:
 
 # El buffer está en un volumen: si el gateway se reinicia, no se pierde lo que estaba esperando
 volumes:
+  iot_sensor_state:
   iot_mqtt_data:
   iot_gateway_buffer:
