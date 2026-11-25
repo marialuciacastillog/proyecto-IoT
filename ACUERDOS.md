@@ -20,6 +20,8 @@
 
 ## Mensaje de reportes (API de reportes -> worker de reportes)
 { "job_id": "uuid", "report_type": "global_inventory", "format": "csv" }
+- report_type: global_inventory, inventory_by_warehouse, low_stock, transfers, audit (lista en reports/worker/queries.py)
+- format: csv o json
 
 ## Base de datos central (central_db, puerto 5440)
 - global_inventory y processed_events: sincronización (src/database y src/central_sync_worker)

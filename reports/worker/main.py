@@ -13,6 +13,8 @@ import psycopg
 from botocore.exceptions import ClientError
 from psycopg.rows import dict_row
 
+from worker.queries import REPORT_TYPES, FORMATS
+
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 QUEUE_URL = os.environ["REPORTS_QUEUE_URL"]
@@ -40,27 +42,26 @@ logging.basicConfig(
 logger = logging.getLogger("reports.worker")
 
 
-def generate_csv():
-    output = io.StringIO()
-    writer = csv.writer(output)
-
-    writer.writerow(["product_id", "total_quantity"])
-
+# Corre la consulta del tipo de reporte y arma el archivo en el formato pedido
+def generate_report(report_type, report_format):
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT product_id, SUM(quantity)
-                FROM global_inventory
-                GROUP BY product_id
-                ORDER BY product_id
-                """
-            )
+            cursor.execute(REPORT_TYPES[report_type]["sql"])
+            columns = [column.name for column in cursor.description]
+            rows = cursor.fetchall()
 
-            for product_id, total in cursor.fetchall():
-                writer.writerow([product_id, total])
+    if report_format == "json":
+        records = [dict(zip(columns, row)) for row in rows]
+        content = json.dumps(records, indent=2, default=str, ensure_ascii=False)
+    else:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow(row)
+        content = output.getvalue()
 
-    return output.getvalue()
+    return content, len(rows)
 
 
 def get_job(job_id):
@@ -199,7 +200,7 @@ def process_message(message):
         delete_message(receipt_handle)
         return
 
-    if report_type != "global_inventory" or report_format != "csv":
+    if report_type not in REPORT_TYPES or report_format not in FORMATS:
         raise ValueError("Unsupported report type or format")
 
     token = claim_job(job_id)
@@ -217,15 +218,17 @@ def process_message(message):
     try:
         logger.info("Processing job %s", job_id)
 
-        csv_content = generate_csv()
-        s3_key = f"reports/{job_id}.csv"
+        content, row_count = generate_report(report_type, report_format)
+        s3_key = f"reports/{report_type}/{job_id}.{report_format}"
 
         s3.put_object(
             Bucket=BUCKET_NAME,
             Key=s3_key,
-            Body=csv_content.encode("utf-8"),
-            ContentType="text/csv"
+            Body=content.encode("utf-8"),
+            ContentType=FORMATS[report_format]
         )
+
+        logger.info("Report %s has %s rows", job_id, row_count)
 
         mark_completed(job_id, token, s3_key)
 

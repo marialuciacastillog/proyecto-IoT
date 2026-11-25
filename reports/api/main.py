@@ -7,11 +7,18 @@ import psycopg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from psycopg.rows import dict_row
+import boto3
+
+from worker.queries import REPORT_TYPES, FORMATS
 
 
 app = FastAPI(title="IoT Reports API")
 
 DATABASE_URL = os.environ["DATABASE_URL"]
+BUCKET_NAME = os.environ.get("REPORTS_BUCKET_NAME", "")
+DOWNLOAD_SECONDS = 900  # el link de descarga dura 15 minutos
+
+s3 = boto3.client("s3", region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
 
 
 class ReportRequest(BaseModel):
@@ -36,11 +43,16 @@ def health():
 
 @app.post("/reports", status_code=202)
 def create_report(request: ReportRequest):
-    if (request.report_type != "global_inventory"
-            or request.format != "csv"):
+    if request.report_type not in REPORT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="Only global_inventory in csv format is supported"
+            detail="Unknown report_type. Options: " + ", ".join(REPORT_TYPES)
+        )
+
+    if request.format not in FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unknown format. Options: " + ", ".join(FORMATS)
         )
 
     job_id = uuid.uuid4()
@@ -80,6 +92,89 @@ def create_report(request: ReportRequest):
         "job_id": str(job_id),
         "status": "PENDING"
     }
+
+
+# Qué reportes y formatos se pueden pedir
+@app.get("/reports/types")
+def list_report_types():
+    return {
+        "formats": list(FORMATS),
+        "report_types": [
+            {"report_type": name, "description": info["description"]}
+            for name, info in REPORT_TYPES.items()
+        ]
+    }
+
+
+# Los últimos reportes pedidos (se puede filtrar por estado: PENDING, QUEUED, PROCESSING, COMPLETED, FAILED)
+@app.get("/reports/jobs")
+def list_report_jobs(limit: int = 20, status: str | None = None):
+    limit = max(1, min(limit, 100))
+    try:
+        with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+            if status is None:
+                jobs = conn.execute(
+                    """
+                    SELECT job_id, report_type, format, status, s3_key, created_at, updated_at
+                    FROM report_jobs
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (limit,)
+                ).fetchall()
+            else:
+                jobs = conn.execute(
+                    """
+                    SELECT job_id, report_type, format, status, s3_key, created_at, updated_at
+                    FROM report_jobs
+                    WHERE status = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (status.upper(), limit)
+                ).fetchall()
+
+    except psycopg.Error:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable"
+        )
+
+    return {"count": len(jobs), "jobs": jobs}
+
+
+# Link temporal de S3 para descargar el reporte desde el navegador (sin la CLI)
+@app.get("/reports/jobs/{job_id}/download")
+def download_report(job_id: uuid.UUID):
+    try:
+        with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+            job = conn.execute(
+                "SELECT status, s3_key FROM report_jobs WHERE job_id = %s",
+                (job_id,)
+            ).fetchone()
+
+    except psycopg.Error:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable"
+        )
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Report job not found")
+
+    if job["status"] != "COMPLETED":
+        raise HTTPException(
+            status_code=409,
+            detail="Report is not ready yet, status: " + job["status"]
+        )
+
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": BUCKET_NAME, "Key": job["s3_key"]},
+        ExpiresIn=DOWNLOAD_SECONDS
+    )
+
+    return {"job_id": str(job_id), "download_url": url, "expires_in_seconds": DOWNLOAD_SECONDS}
 
 
 @app.get("/reports/jobs/{job_id}")
