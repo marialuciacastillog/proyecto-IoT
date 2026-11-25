@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-25",
+  "source": "warehouse-platform/reports/2026/11/daily-2026-11-25.json",
+  "totalUnits": 98,
+  "warehouseCount": 3,
+  "warehouseWithMostUnits": "wh-003",
+  "warehouseWithFewestUnits": "wh-001",
+  "productCount": 2
+}

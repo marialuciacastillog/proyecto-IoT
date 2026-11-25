@@ -1,0 +1,105 @@
+2026-11-25T10:36:35.779000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:36:36.206000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 START RequestId: 6a7c695b-6c93-4ee8-a40c-09b26cb59cd2 Version: $LATEST
+2026-11-25T10:36:36.207000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-2026-11-25.json
+2026-11-25T10:36:36.611000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Guardado en S3: warehouse-platform/exports/2026/11/summary-2026-11-25.json
+2026-11-25T10:36:36.611000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:36:36.670000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Guardado en S3: warehouse-platform/audit/lambda/daily-2026-11-25-6a7c695b-6c93-4ee8-a40c-09b26cb59cd2.json
+2026-11-25T10:36:36.872000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:36:36.874000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 END RequestId: 6a7c695b-6c93-4ee8-a40c-09b26cb59cd2
+2026-11-25T10:36:36.874000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 REPORT RequestId: 6a7c695b-6c93-4ee8-a40c-09b26cb59cd2	Duration: 667.62 ms	Billed Duration: 1091 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 423.33 ms
+2026-11-25T10:37:21.653000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 START RequestId: 2e8a8af6-11f2-4eac-a43a-a8d98d672a39 Version: $LATEST
+2026-11-25T10:37:21.656000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-malo.json
+2026-11-25T10:37:21.888000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Reporte RECHAZADO: ['totalUnits es 500 pero las bodegas suman 98']
+2026-11-25T10:37:21.949000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Guardado en S3: warehouse-platform/audit/lambda/daily-malo-2e8a8af6-11f2-4eac-a43a-a8d98d672a39.json
+2026-11-25T10:37:21.995000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Evento publicado: REPORT_REJECTED
+2026-11-25T10:37:22.010000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 END RequestId: 2e8a8af6-11f2-4eac-a43a-a8d98d672a39
+2026-11-25T10:37:22.010000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 REPORT RequestId: 2e8a8af6-11f2-4eac-a43a-a8d98d672a39	Duration: 356.97 ms	Billed Duration: 357 ms	Memory Size: 128 MB	Max Memory Used: 93 MB
+2026-11-25T10:37:59.865000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 START RequestId: a202348b-ac43-478f-a4e0-5d11a9f3884a Version: $LATEST
+2026-11-25T10:37:59.866000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-10.json
+2026-11-25T10:38:00.011000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.012000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.046000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.046000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.079000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.079000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.081000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.087000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.103000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 INIT_START Runtime Version: python:3.12.mainlinev2.v86	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:9d15a516fef11563a8c452bd8d3fe5a5a120b73013e74783e925235557467534
+2026-11-25T10:38:00.150000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-10.json
+2026-11-25T10:38:00.150000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.212000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-10-a202348b-ac43-478f-a4e0-5d11a9f3884a.json
+2026-11-25T10:38:00.229000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:00.250000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 END RequestId: a202348b-ac43-478f-a4e0-5d11a9f3884a
+2026-11-25T10:38:00.250000+00:00 2026/11/25/[$LATEST]a0b67c81f0e04b43b716c25d94963e20 REPORT RequestId: a202348b-ac43-478f-a4e0-5d11a9f3884a	Duration: 384.88 ms	Billed Duration: 385 ms	Memory Size: 128 MB	Max Memory Used: 94 MB
+2026-11-25T10:38:00.485000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 START RequestId: 3bb1bc4a-b37c-4415-9865-1021e42ab28b Version: $LATEST
+2026-11-25T10:38:00.485000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-1.json
+2026-11-25T10:38:00.540000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 START RequestId: 4659fd1d-eb78-4d6b-b9ef-6c778d9177b8 Version: $LATEST
+2026-11-25T10:38:00.541000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-2.json
+2026-11-25T10:38:00.573000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 START RequestId: 9c8aba60-27d6-4f14-ace7-bb499fe64650 Version: $LATEST
+2026-11-25T10:38:00.575000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-5.json
+2026-11-25T10:38:00.576000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 START RequestId: 18ad32dd-6868-4829-a181-f8cdc2b591ec Version: $LATEST
+2026-11-25T10:38:00.577000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-8.json
+2026-11-25T10:38:00.587000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 START RequestId: 3039f496-19b2-4eee-b3f2-f70d7cd305c2 Version: $LATEST
+2026-11-25T10:38:00.588000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-3.json
+2026-11-25T10:38:00.616000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 START RequestId: 19d136ce-fa14-4d28-8ff4-c78130b30173 Version: $LATEST
+2026-11-25T10:38:00.616000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-7.json
+2026-11-25T10:38:00.621000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e START RequestId: bfd9802e-a5de-458b-a339-0c2dbf33ff8d Version: $LATEST
+2026-11-25T10:38:00.622000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-4.json
+2026-11-25T10:38:00.626000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 START RequestId: 01382967-cd95-4579-9c20-818befeb47d2 Version: $LATEST
+2026-11-25T10:38:00.627000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-9.json
+2026-11-25T10:38:00.647000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 START RequestId: f81162c6-58e7-4f83-824d-29e246e9daab Version: $LATEST
+2026-11-25T10:38:00.648000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 Llegó un reporte nuevo: warehouse-platform/reports/2026/11/daily-prueba-6.json
+2026-11-25T10:38:00.869000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-1.json
+2026-11-25T10:38:00.869000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.926000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-1-3bb1bc4a-b37c-4415-9865-1021e42ab28b.json
+2026-11-25T10:38:00.927000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-2.json
+2026-11-25T10:38:00.927000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.951000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-8.json
+2026-11-25T10:38:00.951000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.965000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-5.json
+2026-11-25T10:38:00.965000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.982000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-7.json
+2026-11-25T10:38:00.982000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.983000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-4.json
+2026-11-25T10:38:00.983000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.989000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-9.json
+2026-11-25T10:38:00.989000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.995000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-3.json
+2026-11-25T10:38:00.995000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:00.998000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-2-4659fd1d-eb78-4d6b-b9ef-6c778d9177b8.json
+2026-11-25T10:38:01.011000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-8-18ad32dd-6868-4829-a181-f8cdc2b591ec.json
+2026-11-25T10:38:01.017000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 Guardado en S3: warehouse-platform/exports/2026/11/summary-prueba-6.json
+2026-11-25T10:38:01.017000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 Reporte VÁLIDO, total de unidades: 98
+2026-11-25T10:38:01.018000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-5-9c8aba60-27d6-4f14-ace7-bb499fe64650.json
+2026-11-25T10:38:01.038000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-4-bfd9802e-a5de-458b-a339-0c2dbf33ff8d.json
+2026-11-25T10:38:01.038000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-7-19d136ce-fa14-4d28-8ff4-c78130b30173.json
+2026-11-25T10:38:01.043000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-3-3039f496-19b2-4eee-b3f2-f70d7cd305c2.json
+2026-11-25T10:38:01.055000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-9-01382967-cd95-4579-9c20-818befeb47d2.json
+2026-11-25T10:38:01.072000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 Guardado en S3: warehouse-platform/audit/lambda/daily-prueba-6-f81162c6-58e7-4f83-824d-29e246e9daab.json
+2026-11-25T10:38:01.110000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.130000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 END RequestId: 3bb1bc4a-b37c-4415-9865-1021e42ab28b
+2026-11-25T10:38:01.130000+00:00 2026/11/25/[$LATEST]9be549e0f62048aebd92007f82fbb376 REPORT RequestId: 3bb1bc4a-b37c-4415-9865-1021e42ab28b	Duration: 644.65 ms	Billed Duration: 1080 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 435.23 ms
+2026-11-25T10:38:01.175000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.187000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 END RequestId: 4659fd1d-eb78-4d6b-b9ef-6c778d9177b8
+2026-11-25T10:38:01.187000+00:00 2026/11/25/[$LATEST]52942e905ba345eea25349d7b72f4ca2 REPORT RequestId: 4659fd1d-eb78-4d6b-b9ef-6c778d9177b8	Duration: 646.52 ms	Billed Duration: 1137 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 490.06 ms
+2026-11-25T10:38:01.192000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.206000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.208000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.210000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 END RequestId: 9c8aba60-27d6-4f14-ace7-bb499fe64650
+2026-11-25T10:38:01.210000+00:00 2026/11/25/[$LATEST]23017d846d534efd8049a0b6c4213e08 REPORT RequestId: 9c8aba60-27d6-4f14-ace7-bb499fe64650	Duration: 637.21 ms	Billed Duration: 1184 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 546.52 ms
+2026-11-25T10:38:01.213000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 END RequestId: 18ad32dd-6868-4829-a181-f8cdc2b591ec
+2026-11-25T10:38:01.213000+00:00 2026/11/25/[$LATEST]d8da512a19db4cfb8b4bb5b717fa0ce7 REPORT RequestId: 18ad32dd-6868-4829-a181-f8cdc2b591ec	Duration: 636.09 ms	Billed Duration: 1122 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 485.80 ms
+2026-11-25T10:38:01.218000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 END RequestId: 19d136ce-fa14-4d28-8ff4-c78130b30173
+2026-11-25T10:38:01.218000+00:00 2026/11/25/[$LATEST]f7ef362d8f3e4dcaa6c796a4d0c44fe0 REPORT RequestId: 19d136ce-fa14-4d28-8ff4-c78130b30173	Duration: 602.27 ms	Billed Duration: 1136 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 532.89 ms
+2026-11-25T10:38:01.221000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.223000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.227000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.233000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 END RequestId: 01382967-cd95-4579-9c20-818befeb47d2
+2026-11-25T10:38:01.233000+00:00 2026/11/25/[$LATEST]d6fec7bf9a794a70a6c98b82945dcff8 REPORT RequestId: 01382967-cd95-4579-9c20-818befeb47d2	Duration: 605.86 ms	Billed Duration: 1149 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 543.05 ms
+2026-11-25T10:38:01.234000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 Evento publicado: REPORT_VALIDATED
+2026-11-25T10:38:01.243000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 END RequestId: 3039f496-19b2-4eee-b3f2-f70d7cd305c2
+2026-11-25T10:38:01.243000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e END RequestId: bfd9802e-a5de-458b-a339-0c2dbf33ff8d
+2026-11-25T10:38:01.244000+00:00 2026/11/25/[$LATEST]6643d144b97c46048600605b052c0b63 REPORT RequestId: 3039f496-19b2-4eee-b3f2-f70d7cd305c2	Duration: 655.58 ms	Billed Duration: 1227 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 571.11 ms
+2026-11-25T10:38:01.244000+00:00 2026/11/25/[$LATEST]a69b4afab9004b4e8bdfe9021cb6ef9e REPORT RequestId: bfd9802e-a5de-458b-a339-0c2dbf33ff8d	Duration: 621.50 ms	Billed Duration: 1159 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 536.91 ms
+2026-11-25T10:38:01.254000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 END RequestId: f81162c6-58e7-4f83-824d-29e246e9daab
+2026-11-25T10:38:01.254000+00:00 2026/11/25/[$LATEST]fe2e1d01f65f4cdaa7b4ff7581961ff0 REPORT RequestId: f81162c6-58e7-4f83-824d-29e246e9daab	Duration: 606.76 ms	Billed Duration: 1147 ms	Memory Size: 128 MB	Max Memory Used: 93 MB	Init Duration: 540.21 ms
