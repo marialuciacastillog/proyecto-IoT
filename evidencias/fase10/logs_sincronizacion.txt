@@ -1,0 +1,16 @@
+GUARDADO | INVENTORY_UPDATED | wh-001 producto P-PRUEBA cantidad 5 | correlationId COR-DUP
+REPETIDO | INVENTORY_UPDATED | wh-001 producto P-PRUEBA cantidad 5 | correlationId COR-DUP
+INVÁLIDO -> DLQ sin reintentar: JSON inválido
+INVÁLIDO -> DLQ sin reintentar: falta el campo quantity
+Error en el intento 1 de 3, SQS lo reintentará: value too long for type character varying(20)
+Error en el intento 2 de 3, SQS lo reintentará: value too long for type character varying(20)
+Error en el intento 3 de 3, SQS lo reintentará: value too long for type character varying(20)
+Error en el intento 1 de 3, SQS lo reintentará: server closed the connection unexpectedly
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+Esperando la base de datos central: could not translate host name "central_postgres_db" to address: Temporary failure in name resolution
+GUARDADO | INVENTORY_UPDATED | wh-001 producto P-001 cantidad 36 | correlationId COR-DB-CAIDA

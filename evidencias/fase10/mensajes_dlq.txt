@@ -1,0 +1,2 @@
+{"eventId":"EV-SIN-CANTIDAD","warehouseId":"wh-001","productId":"P-001","createdAt":"2026-11-25T11:00:00"}	falta el campo quantity
+{"eventId":"EV-FALLA-DB","warehouseId":"bodega-con-un-nombre-larguisimo","productId":"P-001","quantity":1,"createdAt":"2026-11-25T11:00:00"}	None
