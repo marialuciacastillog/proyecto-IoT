@@ -25,6 +25,7 @@
     </aside>
 
     <main class="content">
+        <div class="notice role-hidden" id="wrong-warehouse"></div>
         <!-- RESUMEN -->
         <section class="view active" id="view-resumen">
             <div class="page-header">
@@ -50,7 +51,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" data-roles="ADMIN_GLOBAL">
                     <div class="card-header">
                         <h2>Caché (Redis)</h2>
                         <button class="btn btn-light" id="reset-cache-btn">Reiniciar contadores</button>
@@ -74,7 +75,7 @@
                 </div>
             </div>
             <div class="grid grid-2">
-                <div class="card">
+                <div class="card" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">
                     <h2>Nuevo producto</h2>
                     <form id="product-form">
                         <div class="form-row">
@@ -112,7 +113,7 @@
                 <button class="btn btn-light" data-refresh>Actualizar</button>
             </div>
             <div class="grid grid-2">
-                <div class="card">
+                <div class="card" data-roles="ADMIN_BODEGA,ENCARGADO">
                     <h2>Registrar movimiento</h2>
                     <form id="movement-form">
                         <div class="field"><label for="m-product">Producto</label><select id="m-product" required></select></div>
@@ -124,7 +125,6 @@
                                     <option value="SHIPMENT">Salida (SHIPMENT)</option>
                                     <option value="RETURN">Devolución (RETURN)</option>
                                     <option value="RESERVATION">Reservar (RESERVATION)</option>
-                                    <option value="RESERVATION_CONFIRM">Confirmar reserva (RESERVATION_CONFIRM)</option>
                                     <option value="RELEASE">Liberar reserva (RELEASE)</option>
                                 </select>
                             </div>
@@ -171,8 +171,8 @@
             <div class="card">
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th></tr></thead>
-                        <tbody id="history-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                        <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th><th>Usuario</th></tr></thead>
+                        <tbody id="history-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -188,7 +188,7 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th></tr></thead>
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th><th>Usuario</th></tr></thead>
                     <tbody id="product-modal-body"></tbody>
                 </table>
             </div>
@@ -198,6 +198,7 @@
     <div class="toast" id="toast"></div>
 
     <script src="config.js"></script>
+    <script src="session.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

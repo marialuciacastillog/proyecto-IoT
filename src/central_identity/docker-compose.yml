@@ -1,0 +1,27 @@
+# Etapa A: servicio de identidad (usuarios, login y roles). Puerto 8008.
+# Usa la base y la red de la central, así que se prende DESPUÉS de src/central_sync_worker.
+# Las llaves del token están en /opt/proyecto/secrets (las crea Terraform al prender la máquina).
+services:
+  identity:
+    build: .
+    container_name: central_identity
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      - JWT_PRIVATE_KEY_PATH=/secrets/jwt_private.pem
+      - JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem
+      - ADMIN_USERNAME=admin
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
+      - TOKEN_HOURS=2
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${JWT_KEYS_DIR:-/opt/proyecto/secrets}:/secrets:ro
+    ports:
+      - "8008:8000"
+    networks:
+      - iot-central-network
+
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network

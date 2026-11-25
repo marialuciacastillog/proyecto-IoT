@@ -35,13 +35,15 @@ class InventoryRepository:
         inventory.reserved_quantity = reserved_quantity
         self.db.add(inventory)
 
-    def register_movement(self, product_id: int, m_type: str, qty: int, ref: Optional[str]) -> InventoryMovementEntity:
+    def register_movement(self, product_id: int, m_type: str, qty: int, ref: Optional[str],
+                          created_by: str = "sistema") -> InventoryMovementEntity:
         movement = InventoryMovementEntity(
             product_id=product_id,
             warehouse_id=settings.WAREHOUSE_ID,
             type=m_type,
             quantity=qty,
-            reference=ref
+            reference=ref,
+            created_by=created_by
         )
         self.db.add(movement)
         return movement

@@ -39,9 +39,15 @@ function toast(message, type) {
     element.timer = setTimeout(() => { element.className = "toast"; }, 4500);
 }
 
-// fetch con manejo de errores: devuelve el JSON o lanza un Error con el detalle de FastAPI
+// fetch con manejo de errores: devuelve el JSON o lanza un Error con el detalle de FastAPI.
+// Etapa A: cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
 async function api(path, options) {
-    const response = await fetch(API + path, options);
+    const request = Object.assign({}, options);
+    request.headers = Object.assign({}, request.headers, authHeader());
+    const response = await fetch(API + path, request);
+    if (response.status === 401 && path !== "/health") {
+        handleUnauthorized();
+    }
     let data = null;
     try { data = await response.json(); } catch (error) { data = null; }
     if (!response.ok) {
@@ -151,7 +157,28 @@ async function loadCache() {
 function refresh() {
     checkHealth();
     loadAll();
-    loadCache();
+    // Las estadísticas de la caché solo las ve el Administrador Global
+    if (hasRole("ADMIN_GLOBAL")) {
+        loadCache();
+    }
+}
+
+
+// ---------- Etapa A: entrada después del login ----------
+
+// Un Admin por Bodega o un Encargado de OTRA bodega no puede usar este front
+function startApp(session) {
+    const notice = document.getElementById("wrong-warehouse");
+    const wrongWarehouse = !isOwnWarehouse(session, state.warehouseId);
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("role-hidden", wrongWarehouse));
+    notice.classList.toggle("role-hidden", !wrongWarehouse);
+    if (wrongWarehouse) {
+        notice.textContent = "Tu usuario pertenece a la bodega " + String(session.warehouseId).toUpperCase() +
+            ". Entra al front de esa bodega para trabajar con ella.";
+        checkHealth();
+    } else {
+        refresh();
+    }
 }
 
 
@@ -266,14 +293,14 @@ function renderHistory() {
     });
     const body = document.getElementById("history-body");
     if (list.length === 0) {
-        body.innerHTML = '<tr><td colspan="5" class="empty">Sin movimientos</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="empty">Sin movimientos</td></tr>';
         return;
     }
     body.innerHTML = list.slice(0, 500).map(m => {
         const product = productById(m.product_id);
         return "<tr><td>" + formatDate(m.created_at) + "</td><td>" + esc(product ? product.sku : m.product_id) +
             "</td><td>" + movementBadge(m.type) + '</td><td class="num">' + formatNumber(m.quantity) +
-            "</td><td>" + esc(m.reference || "-") + "</td></tr>";
+            "</td><td>" + esc(m.reference || "-") + "</td><td>" + esc(m.created_by || "-") + "</td></tr>";
     }).join("");
 }
 
@@ -282,10 +309,10 @@ function openProductHistory(productId) {
     document.getElementById("product-modal-title").textContent = "Movimientos de " + (product ? product.sku + " · " + product.name : productId);
     const list = state.movements.filter(m => m.product_id === productId);
     document.getElementById("product-modal-body").innerHTML = list.length === 0
-        ? '<tr><td colspan="4" class="empty">Sin movimientos</td></tr>'
+        ? '<tr><td colspan="5" class="empty">Sin movimientos</td></tr>'
         : list.map(m =>
             "<tr><td>" + formatDate(m.created_at) + "</td><td>" + movementBadge(m.type) + '</td><td class="num">' +
-            formatNumber(m.quantity) + "</td><td>" + esc(m.reference || "-") + "</td></tr>"
+            formatNumber(m.quantity) + "</td><td>" + esc(m.reference || "-") + "</td><td>" + esc(m.created_by || "-") + "</td></tr>"
         ).join("");
     document.getElementById("product-modal").classList.add("open");
 }
@@ -380,5 +407,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
         b.closest(".modal").classList.remove("open");
     }));
-    refresh();
+    // Etapa A: primero el login. El login lo atiende la central (Nginx reenvía /identity/ al puerto 8008)
+    startWithSession({
+        loginUrl: "/identity/auth/login",
+        changePasswordUrl: "/identity/auth/change-password",
+        title: state.warehouseId ? "Bodega " + state.warehouseId.toUpperCase() : "Bodega",
+        warehouseId: state.warehouseId,
+        onEnter: startApp
+    });
 });

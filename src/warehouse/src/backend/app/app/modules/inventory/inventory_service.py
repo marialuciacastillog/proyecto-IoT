@@ -37,7 +37,8 @@ class InventoryService:
             setCache(key, inventory)
         return inventory
 
-    def process_movement(self, movement_in: MovementCreate):
+    # created_by: usuario que hizo el movimiento (RF-28). Los movimientos automáticos dicen "sistema".
+    def process_movement(self, movement_in: MovementCreate, created_by: str = "sistema"):
         try:
             # 1. Obtener balance actual bloqueando la fila de manera atómica
             inventory = self.repo.get_by_product_for_update(movement_in.product_id)
@@ -83,10 +84,10 @@ class InventoryService:
 
             # 3. Aplicar mutación y registrar auditoría a través del repositorio
             self.repo.update_stock(inventory, new_qty, new_reserved)
-            movement = self.repo.register_movement(movement_in.product_id, m_type, qty, movement_in.reference)
+            movement = self.repo.register_movement(movement_in.product_id, m_type, qty, movement_in.reference, created_by)
 
             # 3.1 Guardar el evento pendiente para la central (misma transacción: o se guarda todo o nada)
-            savePendingEvent(self.db, movement_in.product_id, new_qty)
+            savePendingEvent(self.db, movement_in.product_id, new_qty, created_by)
             
             # 4. Control de Transacción centralizado en el Servicio
             self.db.commit()

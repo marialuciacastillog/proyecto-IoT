@@ -4,12 +4,17 @@ import uuid
 
 import psycopg
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from psycopg.rows import dict_row
 import boto3
 
 from worker.queries import REPORT_TYPES, FORMATS
+from api.auth import requireRoles
+from api.roles import ADMIN_GLOBAL, LIDER
+
+# Etapa A: los reportes los ven el Administrador Global y el Líder (RF-17, RF-30)
+reportReaders = Depends(requireRoles(ADMIN_GLOBAL, LIDER))
 
 
 app = FastAPI(title="IoT Reports API")
@@ -42,7 +47,7 @@ def health():
 
 
 @app.post("/reports", status_code=202)
-def create_report(request: ReportRequest):
+def create_report(request: ReportRequest, user=reportReaders):
     if request.report_type not in REPORT_TYPES:
         raise HTTPException(
             status_code=400,
@@ -96,7 +101,7 @@ def create_report(request: ReportRequest):
 
 # Qué reportes y formatos se pueden pedir
 @app.get("/reports/types")
-def list_report_types():
+def list_report_types(user=reportReaders):
     return {
         "formats": list(FORMATS),
         "report_types": [
@@ -108,7 +113,7 @@ def list_report_types():
 
 # Los últimos reportes pedidos (se puede filtrar por estado: PENDING, QUEUED, PROCESSING, COMPLETED, FAILED)
 @app.get("/reports/jobs")
-def list_report_jobs(limit: int = 20, status: str | None = None):
+def list_report_jobs(limit: int = 20, status: str | None = None, user=reportReaders):
     limit = max(1, min(limit, 100))
     try:
         with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
@@ -145,7 +150,7 @@ def list_report_jobs(limit: int = 20, status: str | None = None):
 
 # Link temporal de S3 para descargar el reporte desde el navegador (sin la CLI)
 @app.get("/reports/jobs/{job_id}/download")
-def download_report(job_id: uuid.UUID):
+def download_report(job_id: uuid.UUID, user=reportReaders):
     try:
         with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
             job = conn.execute(
@@ -178,7 +183,7 @@ def download_report(job_id: uuid.UUID):
 
 
 @app.get("/reports/jobs/{job_id}")
-def get_report_status(job_id: uuid.UUID):
+def get_report_status(job_id: uuid.UUID, user=reportReaders):
     try:
         with psycopg.connect(
             DATABASE_URL,
@@ -220,7 +225,7 @@ def get_report_status(job_id: uuid.UUID):
 # Fase 7: inventario consolidado de un producto en todas las bodegas.
 # Lee global_inventory, que llena el worker de sincronización.
 @app.get("/global/inventory/{product_id}")
-def get_global_inventory(product_id: str):
+def get_global_inventory(product_id: str, user=reportReaders):
     try:
         with psycopg.connect(
             DATABASE_URL,

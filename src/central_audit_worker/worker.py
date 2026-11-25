@@ -33,13 +33,15 @@ createAuditSql = """
         quantity       INTEGER,
         created_at     TIMESTAMP,
         received_at    TIMESTAMP DEFAULT clock_timestamp()
-    )
+    );
+    -- Etapa A: usuario que hizo el movimiento (RF-28)
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS performed_by VARCHAR(80)
 """
 
 # Si el mismo evento llega dos veces, no se duplica (event_id es la llave)
 saveAuditSql = """
-    INSERT INTO audit_log (event_id, event_type, correlation_id, warehouse_id, product_id, quantity, created_at)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO audit_log (event_id, event_type, correlation_id, warehouse_id, product_id, quantity, created_at, performed_by)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (event_id) DO NOTHING
 """
 
@@ -64,7 +66,8 @@ def saveEvent(connection, event):
             event["warehouseId"],
             event["productId"],
             event["quantity"],
-            event["createdAt"]
+            event["createdAt"],
+            event.get("performedBy", "sistema")
         ))
         saved = cursor.rowcount == 1
     connection.commit()
@@ -120,7 +123,8 @@ def processMessage(connection, sqsClient, message):
                 "warehouse_id": event["warehouseId"],
                 "product_id": event["productId"],
                 "quantity": event["quantity"],
-                "correlation_id": event.get("correlationId")
+                "correlation_id": event.get("correlationId"),
+                "performed_by": event.get("performedBy", "sistema")
             })
         sqsClient.delete_message(QueueUrl=queueUrl, ReceiptHandle=message["ReceiptHandle"])
     except Exception as error:

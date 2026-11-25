@@ -42,3 +42,14 @@ variable "audit_queue_url" {
   type        = string
   description = "URL de la cola audit-queue (Fase 3)"
 }
+
+variable "jwt_private_key_pem" {
+  type        = string
+  sensitive   = true
+  description = "Llave privada para firmar tokens (solo la usa la central) - Etapa A"
+}
+
+variable "jwt_public_key_pem" {
+  type        = string
+  description = "Llave pública para revisar tokens (la usan todas las máquinas) - Etapa A"
+}

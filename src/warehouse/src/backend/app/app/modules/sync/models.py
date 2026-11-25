@@ -13,6 +13,7 @@ class PendingEventEntity(Base):
     event_type = Column(String, nullable=False, default="INVENTORY_UPDATED")  # Fase 3: tipo de evento
     correlation_id = Column(String, nullable=True)  # Fase 3: para seguir la operación de punta a punta
     quantity = Column(Integer, nullable=False)  # cantidad TOTAL después del movimiento
+    performed_by = Column(String, nullable=False, default="sistema")  # Etapa A: usuario que hizo el movimiento
     status = Column(String, nullable=False, default="PENDING")  # PENDING o SENT
     created_at = Column(DateTime, default=schemas_utils.current_utc_time)
     sent_at = Column(DateTime, nullable=True)

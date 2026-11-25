@@ -8,6 +8,10 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
       - PYTHONUNBUFFERED=1
+      # Etapa A: llave pública para revisar los tokens
+      - JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem
+    volumes:
+      - ${JWT_KEYS_DIR:-/opt/proyecto/secrets}:/secrets:ro
     ports:
       - "8010:8000"
     networks:

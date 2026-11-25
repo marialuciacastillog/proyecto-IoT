@@ -34,16 +34,16 @@ REPORT_TYPES = {
         "description": "Transferencias entre bodegas y su estado",
         "sql": """
             SELECT transfer_id, source_warehouse, destination_warehouse, product_id,
-                   quantity, status, reason, created_at, updated_at
+                   quantity, status, reason, requested_by, justification, created_at, updated_at
             FROM transfers
             ORDER BY created_at DESC
         """
     },
     "audit": {
-        "description": "Últimos 1000 movimientos registrados por auditoría, con su correlation_id",
+        "description": "Últimos 1000 movimientos registrados por auditoría, con su correlation_id y quién lo hizo",
         "sql": """
             SELECT event_id, event_type, correlation_id, warehouse_id,
-                   product_id, quantity, created_at
+                   product_id, quantity, performed_by, created_at
             FROM audit_log
             ORDER BY created_at DESC
             LIMIT 1000

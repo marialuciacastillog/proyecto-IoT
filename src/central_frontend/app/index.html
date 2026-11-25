@@ -14,14 +14,16 @@
         </div>
         <nav class="nav" id="nav">
             <button data-view="resumen" class="active">Resumen</button>
-            <button data-view="inventario">Inventario global</button>
+            <button data-view="inventario" data-roles="ADMIN_GLOBAL,LIDER">Inventario global</button>
             <button data-view="transferencias">Transferencias</button>
-            <button data-view="reportes">Reportes</button>
+            <button data-view="reportes" data-roles="ADMIN_GLOBAL,LIDER">Reportes</button>
+            <button data-view="usuarios" data-roles="ADMIN_GLOBAL">Usuarios</button>
         </nav>
         <div class="sidebar-footer">
             <div id="status-reports" class="status-dot">Reportes</div>
             <div id="status-transfers" class="status-dot">Transferencias</div>
             <div id="status-iot" class="status-dot">Ingesta IoT</div>
+            <div id="status-identity" class="status-dot">Identidad</div>
         </div>
     </aside>
 
@@ -39,7 +41,7 @@
                 <div class="card stat"><div class="label">Transferencias en curso</div><div class="value" id="stat-active">-</div></div>
                 <div class="card stat"><div class="label">Completadas</div><div class="value" id="stat-completed">-</div></div>
                 <div class="card stat"><div class="label">Fallidas o compensadas</div><div class="value" id="stat-failed">-</div></div>
-                <div class="card stat"><div class="label">Reportes listos</div><div class="value" id="stat-reports">-</div></div>
+                <div class="card stat" data-roles="ADMIN_GLOBAL,LIDER"><div class="label">Reportes listos</div><div class="value" id="stat-reports">-</div></div>
             </div>
             <div class="grid grid-2 mt">
                 <div class="card">
@@ -51,7 +53,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" data-roles="ADMIN_GLOBAL,LIDER">
                     <h2>Últimos reportes</h2>
                     <div class="table-wrap">
                         <table>
@@ -90,7 +92,7 @@
                 <button class="btn btn-light" data-refresh>Actualizar</button>
             </div>
             <div class="grid grid-2">
-                <div class="card">
+                <div class="card" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">
                     <h2>Nueva transferencia</h2>
                     <form id="transfer-form">
                         <div class="form-row">
@@ -115,6 +117,8 @@
                             <div class="field"><label for="t-product">Código del producto</label><input id="t-product" required placeholder="P-001"></div>
                             <div class="field"><label for="t-quantity">Cantidad</label><input id="t-quantity" type="number" min="1" required></div>
                         </div>
+                        <div class="field"><label for="t-justification">Motivo</label><input id="t-justification" maxlength="300" placeholder="Por qué se mueve la mercancía (opcional)"></div>
+                        <p class="sub" id="t-source-note"></p>
                         <button class="btn btn-primary" type="submit">Solicitar transferencia</button>
                     </form>
                 </div>
@@ -136,8 +140,8 @@
                 <h2>Últimas 20 transferencias</h2>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>ID</th><th>Origen</th><th>Destino</th><th>Producto</th><th class="num">Cantidad</th><th>Estado</th><th>Motivo</th><th>Actualizada</th></tr></thead>
-                        <tbody id="transfers-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                        <thead><tr><th>ID</th><th>Origen</th><th>Destino</th><th>Producto</th><th class="num">Cantidad</th><th>Estado</th><th>Detalle del estado</th><th>Pedida por</th><th>Actualizada</th></tr></thead>
+                        <tbody id="transfers-body"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -188,6 +192,70 @@
                 </div>
             </div>
         </section>
+
+        <!-- USUARIOS (Etapa A): solo el Administrador Global -->
+        <section class="view" id="view-usuarios">
+            <div class="page-header">
+                <div>
+                    <h1>Usuarios</h1>
+                    <p>El Administrador Global crea las cuentas y entrega las credenciales. Las contraseñas se guardan cifradas.</p>
+                </div>
+                <button class="btn btn-light" id="users-refresh">Actualizar</button>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h2>Nuevo usuario</h2>
+                    <form id="user-form">
+                        <div class="form-row">
+                            <div class="field"><label for="u-username">Usuario</label><input id="u-username" required minlength="3" placeholder="ana.bodega1"></div>
+                            <div class="field"><label for="u-password">Contraseña inicial</label><input id="u-password" type="password" required minlength="8"></div>
+                        </div>
+                        <div class="field"><label for="u-name">Nombre completo</label><input id="u-name" required minlength="3"></div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="u-role">Rol</label>
+                                <select id="u-role" required>
+                                    <option value="ADMIN_BODEGA">Administrador por Bodega</option>
+                                    <option value="ENCARGADO">Encargado de recepción y envío</option>
+                                    <option value="LIDER">Líder</option>
+                                    <option value="ADMIN_GLOBAL">Administrador Global</option>
+                                </select>
+                            </div>
+                            <div class="field" id="u-warehouse-field">
+                                <label for="u-warehouse">Bodega</label>
+                                <select id="u-warehouse">
+                                    <option value="wh-001">wh-001</option>
+                                    <option value="wh-002">wh-002</option>
+                                    <option value="wh-003">wh-003</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="sub">Mínimo 8 caracteres, con letras y números. Los roles de bodega solo pueden trabajar con su bodega.</p>
+                        <button class="btn btn-primary mt" type="submit">Crear usuario</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Qué puede hacer cada rol</h2>
+                    <table>
+                        <tbody>
+                            <tr><td><span class="badge info">Administrador Global</span></td><td>Usuarios, bodegas, catálogo, solicitudes, notificaciones, reportes y transferencias</td></tr>
+                            <tr><td><span class="badge info">Administrador por Bodega</span></td><td>Productos y movimientos de su bodega, solicitudes y transferencias desde su bodega</td></tr>
+                            <tr><td><span class="badge info">Encargado</span></td><td>Entradas, salidas, lotes, compras y ventas de su bodega</td></tr>
+                            <tr><td><span class="badge info">Líder</span></td><td>Reportes, estadísticas, consolidado e histórico; carga contratos</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mt">
+                <h2>Cuentas</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Bodega</th><th>Estado</th><th>Último ingreso</th><th>Creado por</th><th></th></tr></thead>
+                        <tbody id="users-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Detalle de una transferencia -->
@@ -203,6 +271,7 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="session.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -22,6 +22,9 @@ createTablesSql = """
         created_at            TIMESTAMPTZ DEFAULT NOW(),
         updated_at            TIMESTAMPTZ DEFAULT NOW()
     );
+    -- Etapa A: quién pidió la transferencia y por qué (RF-23, RF-24)
+    ALTER TABLE transfers ADD COLUMN IF NOT EXISTS requested_by VARCHAR(50);
+    ALTER TABLE transfers ADD COLUMN IF NOT EXISTS justification TEXT;
     CREATE TABLE IF NOT EXISTS transfer_history (
         id          SERIAL PRIMARY KEY,
         transfer_id VARCHAR(40) NOT NULL,

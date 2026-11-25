@@ -10,6 +10,7 @@ W1=$(echo $IPS | grep -o '"wh-001":"[^"]*"' | cut -d'"' -f4)
 SQ=$(terraform -chdir=infrastructure output -raw sync_queue_url)
 AQ=$(terraform -chdir=infrastructure output -raw audit_queue_url)
 
+TOKEN=$(bash scripts/token.sh)
 echo "===== API WH-001 (calculado con los logs JSON de los últimos 5 minutos) ====="
 ssh $SSHOPT ubuntu@$W1 "sudo docker logs --since 5m warehouse_api_node_WH-001 2>&1 | grep http_request" > /tmp/api_logs.txt
 total=$(wc -l < /tmp/api_logs.txt)
@@ -25,7 +26,7 @@ fi
 echo
 echo "===== Redis WH-001 ====="
 ssh $SSHOPT ubuntu@$W1 "sudo docker exec redis_WH-001 redis-cli INFO stats | grep -E 'keyspace_hits|keyspace_misses'; sudo docker exec redis_WH-001 redis-cli INFO memory | grep used_memory_human"
-echo "Estadísticas de la API: $(curl -s http://$W1:8001/cache/stats)"
+echo "Estadísticas de la API: $(curl -s -H "Authorization: Bearer $TOKEN" http://$W1:8001/cache/stats)"
 
 echo
 echo "===== Colas (SQS) ====="

@@ -12,6 +12,7 @@ def buildMessage(event):
         "eventId": event.event_id,
         "eventType": event.event_type,
         "correlationId": event.correlation_id,
+        "performedBy": event.performed_by,
         "warehouseId": event.warehouse_id,
         "productId": event.product_id,
         "quantity": event.quantity,

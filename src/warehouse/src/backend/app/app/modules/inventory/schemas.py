@@ -15,6 +15,7 @@ class MovementResponse(BaseModel):
     type: str
     quantity: int
     reference: Optional[str]
+    created_by: str
     created_at: datetime
 
     class Config:

@@ -9,3 +9,4 @@ credentials
 __pycache__/
 venv/
 *.zip
+secrets/

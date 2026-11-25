@@ -22,4 +22,5 @@ class InventoryMovementEntity(Base):
     type = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
     reference = Column(String)
+    created_by = Column(String, nullable=False, default="sistema")  # Etapa A: quién hizo el movimiento (RF-28)
     created_at = Column(DateTime, default=schemas_utils.current_utc_time)

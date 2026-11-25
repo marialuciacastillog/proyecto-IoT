@@ -37,6 +37,8 @@ module "ec2" {
   reports_bucket_name = module.s3_reports.bucket_name
   sync_topic_arn      = module.sns_events.topic_arn
   audit_queue_url     = module.sns_events.audit_queue_url
+  jwt_private_key_pem = tls_private_key.jwt.private_key_pem
+  jwt_public_key_pem  = tls_private_key.jwt.public_key_pem
 
   # Las suscripciones de SNS deben existir antes de que las bodegas empiecen a publicar
   depends_on = [module.sns_events, module.iot_events]

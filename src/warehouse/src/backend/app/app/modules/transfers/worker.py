@@ -79,7 +79,7 @@ def applyCommand(command):
                 movement = MovementCreate(product_id=product.id, type=movementTypes[command["command"]],
                                           quantity=command["quantity"], reference=command["transferId"])
                 try:
-                    InventoryService(db).process_movement(movement)
+                    InventoryService(db).process_movement(movement, "saga:" + command["transferId"])
                     result["ok"] = True
                 except HTTPException as error:
                     if error.status_code >= 500:

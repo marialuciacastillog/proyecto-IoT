@@ -2,11 +2,16 @@
 //   /svc/reports/   -> API de reportes e inventario global (iot-reports-api)
 //   /svc/transfers/ -> API de transferencias (central_transfers_api)
 //   /svc/iot/       -> ingesta IoT (iot_ingestion), solo para ver si está viva
+//   /svc/identity/  -> identidad: login y usuarios (central_identity), Etapa A
 const SERVICES = {
     reports: "/svc/reports",
     transfers: "/svc/transfers",
-    iot: "/svc/iot"
+    iot: "/svc/iot",
+    identity: "/svc/identity"
 };
+
+// Etapa A: quién puede usar cada parte (los mismos permisos que revisa el backend)
+const REPORT_ROLES = ["ADMIN_GLOBAL", "LIDER"];
 
 const FINAL_TRANSFER = ["COMPLETED", "FAILED", "RESERVATION_RELEASED"];
 const FINAL_REPORT = ["COMPLETED", "FAILED"];
@@ -15,6 +20,7 @@ const state = {
     transfers: [],
     reportTypes: [],
     jobs: [],
+    users: [],
     timer: null
 };
 
@@ -43,8 +49,14 @@ function toast(message, type) {
     element.timer = setTimeout(() => { element.className = "toast"; }, 4500);
 }
 
+// Etapa A: cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
 async function api(service, path, options) {
-    const response = await fetch(SERVICES[service] + path, options);
+    const request = Object.assign({}, options);
+    request.headers = Object.assign({}, request.headers, authHeader());
+    const response = await fetch(SERVICES[service] + path, request);
+    if (response.status === 401 && path !== "/health") {
+        handleUnauthorized();
+    }
     let data = null;
     try { data = await response.json(); } catch (error) { data = null; }
     if (!response.ok) {
@@ -104,6 +116,7 @@ function checkServices() {
     checkService("reports", "status-reports", "Reportes");
     checkService("transfers", "status-transfers", "Transferencias");
     checkService("iot", "status-iot", "Ingesta IoT");
+    checkService("identity", "status-identity", "Identidad");
 }
 
 
@@ -115,7 +128,7 @@ async function loadTransfers() {
     } catch (error) {
         state.transfers = [];
         document.getElementById("transfers-body").innerHTML =
-            '<tr><td colspan="8" class="empty">No se pudo leer la API de transferencias</td></tr>';
+            '<tr><td colspan="9" class="empty">No se pudo leer la API de transferencias</td></tr>';
         document.getElementById("summary-transfers").innerHTML =
             '<tr><td colspan="4" class="empty">No se pudo leer la API de transferencias</td></tr>';
         return;
@@ -135,7 +148,7 @@ function renderTransfers() {
     const body = document.getElementById("transfers-body");
     const summary = document.getElementById("summary-transfers");
     if (list.length === 0) {
-        body.innerHTML = '<tr><td colspan="8" class="empty">Todavía no hay transferencias</td></tr>';
+        body.innerHTML = '<tr><td colspan="9" class="empty">Todavía no hay transferencias</td></tr>';
         summary.innerHTML = '<tr><td colspan="4" class="empty">Todavía no hay transferencias</td></tr>';
         return;
     }
@@ -143,7 +156,7 @@ function renderTransfers() {
         '<tr><td><button class="link" data-transfer="' + esc(t.transfer_id) + '">' + esc(t.transfer_id) + "</button></td>" +
         "<td>" + esc(t.source_warehouse) + "</td><td>" + esc(t.destination_warehouse) + "</td><td>" + esc(t.product_id) +
         '</td><td class="num">' + formatNumber(t.quantity) + "</td><td>" + transferBadge(t.status) + "</td><td>" +
-        esc(t.reason || "-") + "</td><td>" + formatDate(t.updated_at) + "</td></tr>"
+        esc(t.reason || "-") + "</td><td>" + esc(t.requested_by || "-") + "</td><td>" + formatDate(t.updated_at) + "</td></tr>"
     ).join("");
     summary.innerHTML = list.slice(0, 6).map(t =>
         '<tr><td><button class="link" data-transfer="' + esc(t.transfer_id) + '">' + esc(t.transfer_id) + "</button></td>" +
@@ -166,6 +179,7 @@ async function openTransfer(transferId) {
         modalBody.innerHTML =
             "<p>" + esc(t.source_warehouse) + " → " + esc(t.destination_warehouse) + " · " + esc(t.product_id) +
             " × " + formatNumber(t.quantity) + " · estado actual " + transferBadge(t.status) + "</p>" +
+            '<p class="sub">Pedida por ' + esc(t.requested_by || "-") + (t.justification ? " · Motivo: " + esc(t.justification) : "") + "</p>" +
             '<p class="sub">El transfer_id también es el correlationId de los movimientos en las bodegas y en audit_log.</p>' +
             '<h2 class="mt">Historial</h2><ul class="timeline">' + (steps || "<li>Sin historial</li>") + "</ul>";
     } catch (error) {
@@ -180,7 +194,8 @@ async function createTransfer(event) {
         source_warehouse: document.getElementById("t-source").value,
         destination_warehouse: document.getElementById("t-destination").value,
         product_id: document.getElementById("t-product").value.trim(),
-        quantity: parseInt(document.getElementById("t-quantity").value, 10)
+        quantity: parseInt(document.getElementById("t-quantity").value, 10),
+        justification: document.getElementById("t-justification").value.trim() || null
     };
     if (payload.source_warehouse === payload.destination_warehouse) {
         toast("El origen y el destino deben ser distintos", "error");
@@ -191,6 +206,7 @@ async function createTransfer(event) {
         const result = await api("transfers", "/transfers", postJson(payload));
         toast("Transferencia " + result.transfer_id + " solicitada");
         document.getElementById("t-quantity").value = "";
+        document.getElementById("t-justification").value = "";
         await loadTransfers();
         schedulePolling();
     } catch (error) {
@@ -327,7 +343,11 @@ function schedulePolling() {
     const pendingReports = state.jobs.some(j => !FINAL_REPORT.includes(j.status));
     if (pendingTransfers || pendingReports) {
         state.timer = setTimeout(async () => {
-            await Promise.all([loadTransfers(), loadJobs()]);
+            const loads = [loadTransfers()];
+            if (hasRole(...REPORT_ROLES)) {
+                loads.push(loadJobs());
+            }
+            await Promise.all(loads);
             schedulePolling();
         }, 3000);
     }
@@ -335,8 +355,125 @@ function schedulePolling() {
 
 async function refresh() {
     checkServices();
-    await Promise.all([loadTransfers(), loadJobs()]);
+    const loads = [loadTransfers()];
+    if (hasRole(...REPORT_ROLES)) {
+        loads.push(loadJobs());
+    }
+    await Promise.all(loads);
     schedulePolling();
+}
+
+
+// ---------- Usuarios (Etapa A, solo Administrador Global) ----------
+
+async function loadUsers() {
+    try {
+        state.users = await api("identity", "/users");
+    } catch (error) {
+        state.users = [];
+        document.getElementById("users-body").innerHTML =
+            '<tr><td colspan="8" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    renderUsers();
+}
+
+function renderUsers() {
+    const body = document.getElementById("users-body");
+    const me = getSession();
+    body.innerHTML = state.users.map(u => {
+        const status = u.active ? '<span class="badge ok">Activo</span>' : '<span class="badge neutral">Desactivado</span>';
+        let actions = "";
+        if (u.username !== me.username) {
+            actions = '<button class="link" data-user-toggle="' + u.id + '">' + (u.active ? "Desactivar" : "Activar") + "</button> " +
+                '<button class="link" data-user-reset="' + u.id + '">Restablecer contraseña</button>';
+        }
+        return "<tr><td><strong>" + esc(u.username) + "</strong></td><td>" + esc(u.full_name) + "</td><td>" +
+            esc(ROLE_LABELS[u.role] || u.role) + "</td><td>" + esc(u.warehouse_id || "-") + "</td><td>" + status +
+            "</td><td>" + formatDate(u.last_login_at) + "</td><td>" + esc(u.created_by || "-") + "</td><td>" + actions + "</td></tr>";
+    }).join("");
+}
+
+function toggleWarehouseField() {
+    const role = document.getElementById("u-role").value;
+    document.getElementById("u-warehouse-field").classList.toggle("role-hidden", !WAREHOUSE_ROLES.includes(role));
+}
+
+async function createUser(event) {
+    event.preventDefault();
+    const form = event.target;
+    const role = document.getElementById("u-role").value;
+    const payload = {
+        username: document.getElementById("u-username").value.trim(),
+        password: document.getElementById("u-password").value,
+        full_name: document.getElementById("u-name").value.trim(),
+        role: role,
+        warehouse_id: WAREHOUSE_ROLES.includes(role) ? document.getElementById("u-warehouse").value : null
+    };
+    form.querySelector("button").disabled = true;
+    try {
+        await api("identity", "/users", postJson(payload));
+        toast("Usuario " + payload.username + " creado. Entrégale su usuario y contraseña inicial");
+        form.reset();
+        toggleWarehouseField();
+        await loadUsers();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+    form.querySelector("button").disabled = false;
+}
+
+async function toggleUser(userId) {
+    const user = state.users.find(u => u.id === userId);
+    try {
+        await api("identity", "/users/" + userId, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ active: !user.active })
+        });
+        toast("Usuario " + user.username + (user.active ? " desactivado" : " activado"));
+        await loadUsers();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function resetUserPassword(userId) {
+    const user = state.users.find(u => u.id === userId);
+    const newPassword = window.prompt("Nueva contraseña para " + user.username + " (mínimo 8 caracteres, con letras y números):");
+    if (newPassword) {
+        try {
+            await api("identity", "/users/" + userId + "/reset-password", postJson({ new_password: newPassword }));
+            toast("Contraseña de " + user.username + " restablecida");
+        } catch (error) {
+            toast(error.message, "error");
+        }
+    }
+}
+
+
+// ---------- Etapa A: entrada después del login ----------
+
+function startApp(session) {
+    // El Administrador por Bodega solo puede pedir transferencias desde su bodega
+    const source = document.getElementById("t-source");
+    const note = document.getElementById("t-source-note");
+    if (session.role === "ADMIN_BODEGA") {
+        source.value = session.warehouseId;
+        source.disabled = true;
+        note.textContent = "Como Administrador por Bodega solo puedes enviar desde " + session.warehouseId + ".";
+    } else {
+        source.disabled = false;
+        note.textContent = "";
+    }
+    if (hasRole(...REPORT_ROLES)) {
+        loadReportTypes();
+    }
+    if (hasRole("ADMIN_GLOBAL")) {
+        toggleWarehouseField();
+        loadUsers();
+    }
+    refresh();
 }
 
 
@@ -358,10 +495,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (jobId) {
             downloadReport(jobId);
         }
+        if (event.target.dataset.userToggle) {
+            toggleUser(parseInt(event.target.dataset.userToggle, 10));
+        }
+        if (event.target.dataset.userReset) {
+            resetUserPassword(parseInt(event.target.dataset.userReset, 10));
+        }
     });
+    document.getElementById("user-form").addEventListener("submit", createUser);
+    document.getElementById("u-role").addEventListener("change", toggleWarehouseField);
+    document.getElementById("users-refresh").addEventListener("click", loadUsers);
     document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
         b.closest(".modal").classList.remove("open");
     }));
-    loadReportTypes();
-    refresh();
+    // Etapa A: primero el login
+    startWithSession({
+        loginUrl: SERVICES.identity + "/auth/login",
+        changePasswordUrl: SERVICES.identity + "/auth/change-password",
+        title: "Nodo central",
+        warehouseId: null,
+        onEnter: startApp
+    });
 });

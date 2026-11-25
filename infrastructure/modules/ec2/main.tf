@@ -9,6 +9,19 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+# Etapa A: IP elástica (fija) para la central. Se crea ANTES que las máquinas, así las bodegas
+# saben desde el arranque dónde está la central (login del front e ingesta IoT).
+# Además no cambia si la máquina se apaga y se vuelve a prender (por ejemplo, al acabar la sesión del lab).
+resource "aws_eip" "central" {
+  domain = "vpc"
+  tags   = { Name = "eip-central" }
+}
+
+resource "aws_eip_association" "central" {
+  instance_id   = aws_instance.servers["central"].id
+  allocation_id = aws_eip.central.id
+}
+
 # Una máquina por VPC: wh-001, wh-002, wh-003 y central
 resource "aws_instance" "servers" {
   for_each               = var.subnet_ids
@@ -40,6 +53,9 @@ resource "aws_instance" "servers" {
     reports_bucket_name = var.reports_bucket_name
     sync_topic_arn      = var.sync_topic_arn
     audit_queue_url     = var.audit_queue_url
+    jwt_private_key_pem = each.key == "central" ? var.jwt_private_key_pem : ""
+    jwt_public_key_pem  = var.jwt_public_key_pem
+    central_ip          = aws_eip.central.public_ip
   })
   user_data_replace_on_change = true
 

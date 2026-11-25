@@ -5,6 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY db.py api.py orchestrator.py ./
+COPY db.py api.py orchestrator.py roles.py auth.py ./
 
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

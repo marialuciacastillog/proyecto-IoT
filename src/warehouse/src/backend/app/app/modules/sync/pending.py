@@ -8,7 +8,7 @@ from app.modules.shared.correlation import getCorrelationId
 # Se manda el código del producto (sku, por ejemplo P-001) y no el id interno,
 # porque cada bodega numera sus productos por su lado y el id 1 de una bodega
 # puede ser otro producto en otra bodega.
-def savePendingEvent(db, productId, quantity):
+def savePendingEvent(db, productId, quantity, performedBy="sistema"):
     product = db.query(ProductEntity).filter(ProductEntity.id == productId).first()
     productCode = str(productId)
     if product is not None:
@@ -20,6 +20,7 @@ def savePendingEvent(db, productId, quantity):
         correlation_id=getCorrelationId(),
         product_id=productCode,
         quantity=quantity,
+        performed_by=performedBy,
         status="PENDING"
     )
     db.add(pendingEvent)

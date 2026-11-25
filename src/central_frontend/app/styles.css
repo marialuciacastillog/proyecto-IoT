@@ -165,3 +165,17 @@ td strong { white-space: nowrap; }
     .nav { flex-direction: row; flex-wrap: wrap; }
     .content { padding: 1rem; }
 }
+
+/* Etapa A: login, usuario en la barra lateral y elementos por rol */
+.role-hidden { display: none !important; }
+.login-screen { position: fixed; inset: 0; background: var(--sidebar); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 200; }
+.login-screen.hidden { display: none; }
+.login-box { background: var(--surface); border-radius: var(--radius); padding: 2rem; width: 380px; max-width: 100%; }
+.login-box h1 { font-size: 1.3rem; font-weight: 600; }
+.login-error { color: var(--error); min-height: 1.2em; font-size: 0.85rem; margin: 0.5rem 0; }
+.modal-box.small { width: 420px; }
+.user-box { border-top: 1px solid rgba(255, 255, 255, 0.12); margin-top: 0.75rem; padding-top: 0.75rem; }
+.user-box strong { color: #fff; display: block; }
+.mt-small { margin-top: 0.4rem; }
+.link-light { background: none; border: none; color: var(--sidebar-text); text-decoration: underline; cursor: pointer; padding: 0; font: inherit; margin-right: 0.75rem; }
+.notice { background: var(--warn-soft); color: var(--warn); padding: 1rem 1.25rem; border-radius: var(--radius); margin-bottom: 1.25rem; }

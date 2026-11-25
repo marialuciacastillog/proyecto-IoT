@@ -50,4 +50,15 @@
 - Central: src/central_frontend (puerto 8080). Se prende después de src/central_sync_worker (usa iot-central-network).
   Nginx reenvía /svc/reports/ -> iot-reports-api, /svc/transfers/ -> central_transfers_api y /svc/iot/ -> iot_ingestion.
   Vistas: Resumen, Inventario global (Read Model), Transferencias (saga) y Reportes (S3).
-- Pendiente: roles y credenciales. Cuando exista el login, cada botón del menú (data-view) se muestra según el rol.
+- Login (Etapa A): los dos fronts usan session.js (mismo archivo). Cada elemento con data-roles="ROL1,ROL2" solo se ve para esos roles.
+## Etapa A - Usuarios, login y roles
+
+- Servicio de identidad en la central, puerto **8008**.
+- Login: `POST /auth/login` con `{"username": "...", "password": "..."}` -> devuelve `access_token` (dura 2 horas).
+- Todas las APIs (bodegas, reportes, transferencias) piden el encabezado `Authorization: Bearer <access_token>`.
+  Sin token responden 401; con un rol sin permiso responden 403. `/health` no pide token.
+- Roles: `ADMIN_GLOBAL`, `ADMIN_BODEGA`, `ENCARGADO`, `LIDER`. `ADMIN_BODEGA` y `ENCARGADO` llevan `warehouse_id` y solo pueden usar su bodega.
+- Solo `ADMIN_GLOBAL` crea usuarios: `POST /users`, `GET /users`, `PATCH /users/{id}`, `POST /users/{id}/reset-password`.
+- Cada quien cambia su contraseña con `POST /auth/change-password`. Reglas: mínimo 8 caracteres, con letras y números. 5 intentos fallidos bloquean 5 minutos.
+- El primer admin es `admin`; su contraseña inicial está en la central, en `/opt/proyecto/secrets/admin_password.txt` (solo con sudo).
+- Los movimientos guardan `created_by` y el evento de sincronización lleva `performedBy`. Las transferencias guardan `requested_by` y `justification`.
