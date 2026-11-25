@@ -7,6 +7,9 @@ import psycopg2
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
 queueUrl = os.environ.get("SYNC_QUEUE_URL", "")
 awsRegion = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+# Fase 10: la DLQ se llama igual que la cola + "-dlq" (así se crea en Terraform)
+dlqUrl = os.environ.get("DLQ_URL", queueUrl + "-dlq")
+requiredFields = ["eventId", "warehouseId", "productId", "quantity", "createdAt"]
 
 # Guarda la cantidad de la bodega. Si ya existe, solo la cambia si el evento es más nuevo
 # (así un mensaje viejo que llegue tarde no pisa uno más reciente).
@@ -82,18 +85,54 @@ def applyEvent(connection, event):
     return result
 
 
-# Solo se borra el mensaje de la cola DESPUÉS de guardarlo.
-# Si algo falla, no se borra: SQS lo vuelve a mostrar en 30 s, y tras 3 fallos lo manda a la DLQ.
-def processMessage(connection, sqsClient, message):
+# Fase 10: revisa el mensaje ANTES de procesarlo.
+# Devuelve el evento y un texto con el problema (vacío si está bien).
+# Un mensaje mal formado nunca se va a arreglar reintentando, por eso no se reintenta.
+def checkEvent(body):
+    event = None
+    problem = ""
     try:
-        event = json.loads(message["Body"])
-        result = applyEvent(connection, event)
-        print(result, "|", event.get("eventType", "INVENTORY_UPDATED"), "|", event["warehouseId"], "producto", event["productId"], "cantidad", event["quantity"], "| correlationId", event.get("correlationId"))
+        event = json.loads(body)
+    except Exception:
+        problem = "JSON inválido"
+    if problem == "" and not isinstance(event, dict):
+        problem = "el mensaje no es un objeto JSON"
+    if problem == "":
+        for field in requiredFields:
+            if field not in event and problem == "":
+                problem = "falta el campo " + field
+    if problem == "" and not isinstance(event["quantity"], int):
+        problem = "quantity no es un número entero"
+    return event, problem
+
+
+# Manda el mensaje a la DLQ con el motivo, para que alguien lo revise después
+def sendToDlq(sqsClient, message, problem):
+    sqsClient.send_message(
+        QueueUrl=dlqUrl,
+        MessageBody=message["Body"],
+        MessageAttributes={"errorReason": {"DataType": "String", "StringValue": problem}}
+    )
+
+
+# Solo se borra el mensaje de la cola DESPUÉS de guardarlo (o de mandarlo a la DLQ si es inválido).
+# Si algo falla (por ejemplo, la base caída), no se borra: SQS lo vuelve a mostrar en 30 s
+# y después de 3 intentos lo manda solo a la DLQ.
+def processMessage(connection, sqsClient, message):
+    attempt = message.get("Attributes", {}).get("ApproximateReceiveCount", "1")
+    event, problem = checkEvent(message["Body"])
+    try:
+        if problem != "":
+            sendToDlq(sqsClient, message, problem)
+            print("INVÁLIDO -> DLQ sin reintentar:", problem)
+        else:
+            result = applyEvent(connection, event)
+            print(result, "|", event.get("eventType", "INVENTORY_UPDATED"), "|", event["warehouseId"], "producto", event["productId"], "cantidad", event["quantity"], "| correlationId", event.get("correlationId"))
         sqsClient.delete_message(QueueUrl=queueUrl, ReceiptHandle=message["ReceiptHandle"])
     except Exception as error:
         if connection.closed == 0:
             connection.rollback()
-        print("Error con un mensaje, SQS lo reintentará:", error)
+        print("Error en el intento", attempt, "de 3, SQS lo reintentará:", error)
 
 
 def main():
@@ -107,7 +146,8 @@ def main():
         if connection.closed != 0:
             connection = connectDatabase()
         try:
-            response = sqsClient.receive_message(QueueUrl=queueUrl, MaxNumberOfMessages=10, WaitTimeSeconds=20)
+            response = sqsClient.receive_message(QueueUrl=queueUrl, MaxNumberOfMessages=10, WaitTimeSeconds=20,
+                                                  AttributeNames=["ApproximateReceiveCount"])
             messages = response.get("Messages", [])
             for message in messages:
                 processMessage(connection, sqsClient, message)
