@@ -1,0 +1,21 @@
+# Fase 5: balanceador de carga de la bodega.
+# Reparte las consultas entre las copias de la API (round robin).
+# Docker resuelve ${API_HOST} a la IP de CADA copia, así que cada una queda como un servidor.
+upstream warehouse_api {
+    server ${API_HOST}:8000 max_fails=1 fail_timeout=10s;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://warehouse_api;
+        # Si una copia no responde, el balanceador reintenta en otra y la saca 10 s de la lista
+        proxy_next_upstream error timeout http_502 http_503;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 30s;
+        proxy_set_header Host $host;
+        # Para ver en la respuesta qué copia atendió
+        add_header X-Upstream $upstream_addr always;
+    }
+}
