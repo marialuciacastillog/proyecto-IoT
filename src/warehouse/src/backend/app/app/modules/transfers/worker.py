@@ -11,6 +11,8 @@ from app.modules.sync.models import PendingEventEntity
 from app.modules.inventory.schemas import MovementCreate
 from app.modules.inventory.inventory_service import InventoryService
 from app.modules.transfers.models import TransferCommandEntity
+from app.modules.reservations.service import ReservationService
+from app.modules.alerts.models import StockAlertEntity
 from app.modules.shared.correlation import currentCorrelationId
 
 # Fase 6 - Worker de transferencias de esta bodega.
@@ -53,6 +55,21 @@ def saveResult(db, key, command, ok, reason):
     db.commit()
 
 
+# RESERVE aparta las unidades con una reserva de transferencia; COMMIT y RELEASE la cierran;
+# RECEIVE suma las unidades en el destino (entran a un lote con el nombre de la transferencia)
+def applyToInventory(db, command, product):
+    username = "saga:" + command["transferId"]
+    reservations = ReservationService(db)
+    if command["command"] == "RESERVE":
+        reservations.reserveForTransfer(product.id, command["quantity"], command["transferId"], username)
+    elif command["command"] in ["COMMIT", "RELEASE"]:
+        reservations.closeTransfer(product.id, command["quantity"], command["transferId"], command["command"], username)
+    else:
+        movement = MovementCreate(product_id=product.id, type=movementTypes[command["command"]],
+                                  quantity=command["quantity"], reference=command["transferId"])
+        InventoryService(db).apply_movement(movement, username)
+
+
 def applyCommand(command):
     # Fase 3: los movimientos de una transferencia llevan el id de la transferencia como correlationId
     currentCorrelationId.set(command["transferId"])
@@ -73,15 +90,16 @@ def applyCommand(command):
                 result["reason"] = "El producto " + command["productId"] + " no existe en " + settings.WAREHOUSE_ID
                 saveResult(db, key, command, False, result["reason"])
             else:
-                # La orden procesada y el movimiento se guardan en la MISMA transacción
-                db.add(TransferCommandEntity(id=key, transfer_id=command["transferId"],
-                                             command=command["command"], ok=True, reason=""))
-                movement = MovementCreate(product_id=product.id, type=movementTypes[command["command"]],
-                                          quantity=command["quantity"], reference=command["transferId"])
+                # La orden procesada, el movimiento y la reserva se guardan en la MISMA transacción
                 try:
-                    InventoryService(db).process_movement(movement, "saga:" + command["transferId"])
+                    db.add(TransferCommandEntity(id=key, transfer_id=command["transferId"],
+                                                 command=command["command"], ok=True, reason=""))
+                    applyToInventory(db, command, product)
+                    db.commit()
+                    InventoryService(db).after_commit(product.id)
                     result["ok"] = True
                 except HTTPException as error:
+                    db.rollback()
                     if error.status_code >= 500:
                         raise
                     # Error de negocio (por ejemplo, stock insuficiente): se guarda como fallo

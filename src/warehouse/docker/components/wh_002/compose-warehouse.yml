@@ -141,3 +141,20 @@ services:
     depends_on:
       wh_002_postgres_db:
         condition: service_healthy
+
+  # Vigilante: vence las reservas, avisa de lotes vencidos y busca incongruencias cada minuto
+  wh_002_vigilante:
+    build:
+      context: ./src/backend/app
+      dockerfile: Dockerfile
+    container_name: vigilante_${WH_ID}
+    command: python -m app.modules.alerts.sweeper
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@wh_002_postgres_db:5432/warehouse_db
+      - WAREHOUSE_ID=wh-002
+      - REDIS_URL=redis://wh_002_redis:6379/0
+      - SWEEP_SECONDS=60
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      wh_002_postgres_db:
+        condition: service_healthy

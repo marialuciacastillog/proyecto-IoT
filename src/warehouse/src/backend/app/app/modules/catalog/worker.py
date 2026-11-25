@@ -15,6 +15,7 @@ from app.modules.inventory.models import InventoryEntity, InventoryMovementEntit
 from app.modules.sync.models import PendingEventEntity
 from app.modules.transfers.models import TransferCommandEntity
 from app.modules.catalog.models import CatalogEventEntity
+from app.modules.alerts.models import StockAlertEntity
 from app.modules.inventory.schemas import MovementCreate
 from app.modules.inventory.inventory_service import InventoryService
 from app.modules.shared.correlation import currentCorrelationId
@@ -58,7 +59,8 @@ def applyAssignment(db, event):
     quantity = int(event.get("initialQuantity") or 0)
     alreadyCounted = db.query(InventoryMovementEntity).filter(InventoryMovementEntity.reference == reference).first() is not None
     if quantity > 0 and not alreadyCounted:
-        movement = MovementCreate(product_id=product.id, type="RECEIPT", quantity=quantity, reference=reference)
+        movement = MovementCreate(product_id=product.id, type="RECEIPT", quantity=quantity, reference=reference,
+                                  lot_code="INICIAL")
         InventoryService(db).process_movement(movement, event.get("performedBy", "catalogo"))
     return "PRODUCTO_CREADO " + data["productCode"] + " con " + str(quantity) + " unidades"
 

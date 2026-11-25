@@ -6,6 +6,9 @@ from app.modules.inventory.inventory_controller import router as inventory_contr
 from app.modules.cache.cache_controller import router as cache_controller
 from app.modules.transfers.models import TransferCommandEntity  # Fase 6: crea la tabla transfer_commands
 from app.modules.catalog.models import CatalogEventEntity  # Crea la tabla catalog_events_applied
+from app.modules.alerts.models import StockAlertEntity  # Crea la tabla stock_alerts
+from app.modules.reservations.controller import router as reservations_controller
+from app.modules.alerts.controller import router as alerts_controller
 
 import socket
 import time
@@ -43,6 +46,8 @@ app.include_router(health_controller)
 app.include_router(products_controller)
 app.include_router(inventory_controller)
 app.include_router(cache_controller)
+app.include_router(reservations_controller)
+app.include_router(alerts_controller)
 
 
 # Fase 5: cada respuesta dice qué copia de la API la atendió (para ver el balanceo)

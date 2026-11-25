@@ -1,5 +1,5 @@
 # Notificaciones (RF-16). Este archivo se copia igual en cada servicio de la central que avisa algo
-# (catálogo, transferencias, notificaciones). Todos escriben en la misma tabla de la base central.
+# (catálogo, transferencias, notificaciones y sincronización). Todos escriben en la misma tabla de la base central.
 #
 # Cada notificación va para un ROL y, si es de una bodega, solo para esa bodega:
 #   recipient_role = ADMIN_GLOBAL, recipient_warehouse = NULL   -> todos los Administradores Globales

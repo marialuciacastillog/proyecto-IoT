@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from app.database import Base
 from app.modules.shared.utils import schemas_utils
 
@@ -14,6 +14,8 @@ class PendingEventEntity(Base):
     correlation_id = Column(String, nullable=True)  # Fase 3: para seguir la operación de punta a punta
     quantity = Column(Integer, nullable=False)  # cantidad TOTAL después del movimiento
     performed_by = Column(String, nullable=False, default="sistema")  # Usuario que hizo el movimiento
+    # Datos extra del evento en JSON: qué movimiento fue (tipo, cantidad, precio, lote) o qué alerta
+    details = Column(Text, nullable=True)
     status = Column(String, nullable=False, default="PENDING")  # PENDING o SENT
     created_at = Column(DateTime, default=schemas_utils.current_utc_time)
     sent_at = Column(DateTime, nullable=True)

@@ -11,6 +11,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -428,6 +429,35 @@ def readProduct(product_code: str, user=Depends(requireRoles(*ALL_ROLES))):
     return product
 
 
+# Para comparar nombres sin que importen las mayúsculas, las tildes ni los espacios de más
+def normalizeText(text):
+    plain = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode("ascii")
+    return " ".join(plain.lower().split())
+
+
+# Productos con el mismo nombre. Con proveedor, solo los del mismo nombre Y el mismo proveedor.
+def findSameName(cursor, name, supplier=None, exceptCode=None):
+    cursor.execute("SELECT product_code, name, supplier FROM products")
+    found = []
+    for row in cursor.fetchall():
+        sameName = normalizeText(row["name"]) == normalizeText(name)
+        sameSupplier = supplier is None or normalizeText(row["supplier"]) == normalizeText(supplier)
+        if sameName and sameSupplier and row["product_code"] != exceptCode:
+            found.append(row)
+    return found
+
+
+# Dos productos con el mismo nombre y el mismo proveedor casi seguro son el mismo producto
+# (el inventario quedaría partido en dos). Si son distintos, el nombre debe decir en qué.
+def checkNotDuplicated(cursor, name, supplier, exceptCode=None):
+    duplicated = findSameName(cursor, name, supplier, exceptCode)
+    if len(duplicated) > 0:
+        other = duplicated[0]
+        raise HTTPException(status_code=409, detail="Ya existe " + other["product_code"] + " · " + other["name"] + " de " +
+                            other["supplier"] + ". Si es otro producto, cambia el nombre (por ejemplo, " +
+                            other["name"] + " 20 oz)")
+
+
 # Crea el producto. La usan el endpoint del Administrador Global y la aprobación de una solicitud.
 def insertProduct(cursor, request, username):
     code = validateProductCode(request.product_code)
@@ -435,6 +465,7 @@ def insertProduct(cursor, request, username):
     cursor.execute("SELECT 1 FROM products WHERE product_code = %s", (code,))
     if cursor.fetchone() is not None:
         raise HTTPException(status_code=409, detail="Ya existe un producto con ese código")
+    checkNotDuplicated(cursor, request.name, request.supplier)
     cursor.execute("INSERT INTO products (product_code, name, category, description, supplier, unit, cost, "
                    "sale_price, wholesale_price, initial_quantity, created_by, updated_by) "
                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING " + productColumns,
@@ -453,6 +484,9 @@ def changeProduct(cursor, productCode, request, username):
         raise HTTPException(status_code=400, detail="No hay cambios")
     current = getProduct(cursor, productCode)
     validatePrices(changes.get("sale_price", current["sale_price"]), changes.get("wholesale_price", current["wholesale_price"]))
+    if "name" in changes or "supplier" in changes:
+        checkNotDuplicated(cursor, changes.get("name", current["name"]), changes.get("supplier", current["supplier"]),
+                           current["product_code"])
     assignments = ", ".join(column + " = %s" for column in changes)
     cursor.execute("UPDATE products SET " + assignments + ", updated_by = %s, updated_at = clock_timestamp() "
                    "WHERE product_code = %s RETURNING " + productColumns,
@@ -625,6 +659,11 @@ def createRequest(request: ProductRequest, user=Depends(requireRoles(ADMIN_BODEG
                 raise HTTPException(status_code=409, detail="Ese producto ya está en el catálogo: agrégalo a tu bodega desde el catálogo")
             if request.request_type == "UPDATE_PRODUCT" and not exists:
                 raise HTTPException(status_code=404, detail="Producto no encontrado en el catálogo")
+            if request.request_type == "NEW_PRODUCT":
+                checkNotDuplicated(cursor, validated.name, validated.supplier)
+            elif validated.name is not None or validated.supplier is not None:
+                current = getProduct(cursor, code)
+                checkNotDuplicated(cursor, validated.name or current["name"], validated.supplier or current["supplier"], code)
             cursor.execute("SELECT id FROM product_requests WHERE product_code = %s AND status = 'PENDING' AND warehouse_id = %s",
                            (code, warehouseId))
             if cursor.fetchone() is not None:
@@ -657,6 +696,13 @@ def listRequests(status: Optional[str] = None, user=Depends(requireRoles(ADMIN_G
                            "ORDER BY (status = 'PENDING') DESC, created_at DESC LIMIT 200",
                            (warehouseId, warehouseId, status, status.upper() if status else None))
             rows = [withLabel(row) for row in cursor.fetchall()]
+            # Para que el Admin Global lo vea al revisar: productos del catálogo con el mismo nombre
+            for row in rows:
+                row["similar"] = []
+                name = (row["data"] or {}).get("name")
+                if row["status"] == "PENDING" and name:
+                    row["similar"] = [item["product_code"] + " · " + item["name"] + " (" + item["supplier"] + ")"
+                                      for item in findSameName(cursor, name, None, row["product_code"])]
     finally:
         connection.close()
     return rows

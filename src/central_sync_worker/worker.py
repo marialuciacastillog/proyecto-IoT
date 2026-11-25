@@ -4,6 +4,7 @@ import time
 import boto3
 import psycopg2
 from datetime import datetime, timezone
+from notify import createNotificationsSql, notify
 
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
 queueUrl = os.environ.get("SYNC_QUEUE_URL", "")
@@ -63,6 +64,19 @@ def connectDatabase():
     return connection
 
 
+# Alerta de una bodega (RF-15, RF-16): el vigilante de la bodega encontró algo (incongruencia,
+# reserva vencida, lote vencido...). Se convierte en notificación para el Admin Global y para el
+# Administrador por Bodega de esa bodega. No cambia ningún inventario.
+def saveAlert(cursor, event):
+    details = event["details"]
+    title = details.get("title", "Alerta en " + event["warehouseId"])
+    message = details.get("message", "")
+    level = details.get("level", "WARNING")
+    reference = event["warehouseId"] + ":" + str(details.get("alertId", ""))
+    notify(cursor, "ALERTA", level, title, message, "ADMIN_GLOBAL", None, reference)
+    notify(cursor, "ALERTA", level, title, message, "ADMIN_BODEGA", event["warehouseId"], reference)
+
+
 # Devuelve qué pasó con el evento:
 #   "GUARDADO" -> era nuevo y se actualizó global_inventory
 #   "VIEJO"    -> era nuevo, pero ya había un dato más reciente, así que no se cambia la cantidad
@@ -72,7 +86,10 @@ def applyEvent(connection, event):
     result = "REPETIDO"
     with connection.cursor() as cursor:
         cursor.execute(saveProcessedSql, (event["eventId"],))
-        if cursor.rowcount == 1:
+        if cursor.rowcount == 1 and event.get("eventType") == "STOCK_ALERT":
+            saveAlert(cursor, event)
+            result = "ALERTA"
+        elif cursor.rowcount == 1:
             cursor.execute(saveHistorySql, (
                 event["eventId"],
                 event["warehouseId"],
@@ -112,6 +129,8 @@ def checkEvent(body):
                 problem = "falta el campo " + field
     if problem == "" and not isinstance(event["quantity"], int):
         problem = "quantity no es un número entero"
+    if problem == "" and event.get("eventType") == "STOCK_ALERT" and not isinstance(event.get("details"), dict):
+        problem = "la alerta no trae sus datos (details)"
     return event, problem
 
 
@@ -156,6 +175,7 @@ def main():
     connection = connectDatabase()
     with connection.cursor() as cursor:
         cursor.execute(createHistorySql)
+        cursor.execute(createNotificationsSql)
     connection.commit()
     sqsClient = boto3.client("sqs", region_name=awsRegion)
     logJson("INFO", "worker_started", {"queue": queueUrl})

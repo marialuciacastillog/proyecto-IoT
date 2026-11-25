@@ -16,7 +16,11 @@
             <button data-view="resumen" class="active">Resumen</button>
             <button data-view="productos">Productos</button>
             <button data-view="inventario">Inventario</button>
+            <button data-view="reservas">Reservas</button>
+            <button data-view="lotes">Lotes</button>
+            <button data-view="transacciones">Compras y ventas</button>
             <button data-view="historial">Historial</button>
+            <button data-view="alertas">Alertas <span class="count role-hidden" id="alerts-count"></span></button>
         </nav>
         <div class="sidebar-footer">
             <div id="api-status" class="status-dot">Conectando...</div>
@@ -40,6 +44,12 @@
                 <div class="card stat"><div class="label">Unidades disponibles</div><div class="value" id="stat-available">-</div></div>
                 <div class="card stat"><div class="label">Unidades reservadas</div><div class="value" id="stat-reserved">-</div></div>
                 <div class="card stat"><div class="label">Con poco stock</div><div class="value" id="stat-low">-</div><div class="hint">Menos de 10 unidades</div></div>
+            </div>
+            <div class="grid grid-4 mt">
+                <div class="card stat"><div class="label">Reservas activas</div><div class="value" id="stat-reservations">-</div><div class="hint">Se vencen solas</div></div>
+                <div class="card stat"><div class="label">Alertas abiertas</div><div class="value" id="stat-alerts">-</div><div class="hint">Las revisa el vigilante cada minuto</div></div>
+                <div class="card stat"><div class="label">Ventas</div><div class="value" id="stat-sales">-</div></div>
+                <div class="card stat"><div class="label">Compras</div><div class="value" id="stat-purchases">-</div></div>
             </div>
             <div class="grid grid-2 mt">
                 <div class="card">
@@ -118,16 +128,30 @@
                             <div class="field">
                                 <label for="m-type">Tipo</label>
                                 <select id="m-type" required>
-                                    <option value="RECEIPT">Entrada (RECEIPT)</option>
-                                    <option value="SHIPMENT">Salida (SHIPMENT)</option>
-                                    <option value="RETURN">Devolución (RETURN)</option>
-                                    <option value="RESERVATION">Reservar (RESERVATION)</option>
-                                    <option value="RELEASE">Liberar reserva (RELEASE)</option>
+                                    <option value="PURCHASE">Compra (entra con su costo)</option>
+                                    <option value="SALE">Venta (sale con su precio)</option>
+                                    <option value="RECEIPT">Entrada sin compra</option>
+                                    <option value="SHIPMENT">Salida sin venta</option>
+                                    <option value="RETURN">Devolución de un cliente</option>
                                 </select>
                             </div>
                             <div class="field"><label for="m-quantity">Cantidad</label><input id="m-quantity" type="number" min="1" required></div>
                         </div>
-                        <div class="field"><label for="m-reference">Referencia</label><input id="m-reference" placeholder="Guía, factura u orden (opcional)"></div>
+                        <div class="form-row" id="m-entry-lot">
+                            <div class="field"><label for="m-lot">Lote al que entra</label><input id="m-lot" placeholder="Si lo dejas vacío: lote del día"></div>
+                            <div class="field"><label for="m-expiry">Vence</label><input id="m-expiry" type="date"></div>
+                        </div>
+                        <div class="field role-hidden" id="m-exit-lot"><label for="m-lot-out">Lote del que sale</label><select id="m-lot-out"></select></div>
+                        <div class="form-row" id="m-price-row">
+                            <div class="field role-hidden" id="m-price-type-field">
+                                <label for="m-price-type">Precio</label>
+                                <select id="m-price-type"><option value="DETAL">Detal</option><option value="MAYORISTA">Mayorista</option></select>
+                            </div>
+                            <div class="field"><label for="m-price">Precio por unidad</label><input id="m-price" type="number" min="0" step="0.01"></div>
+                            <div class="field"><label for="m-counterparty" id="m-counterparty-label">Proveedor</label><input id="m-counterparty"></div>
+                        </div>
+                        <p class="sub" id="m-hint"></p>
+                        <div class="field mt"><label for="m-reference">Referencia</label><input id="m-reference" placeholder="Guía, factura u orden (opcional)"></div>
                         <div class="field"><label for="m-correlation">Correlation ID</label><input id="m-correlation" placeholder="Opcional: si se deja vacío la API crea uno"></div>
                         <button class="btn btn-primary" type="submit">Registrar</button>
                     </form>
@@ -139,10 +163,111 @@
                     </div>
                     <div class="table-wrap">
                         <table>
-                            <thead><tr><th>SKU</th><th>Producto</th><th class="num">Disponible</th><th class="num">Reservado</th><th></th></tr></thead>
-                            <tbody id="stock-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                            <thead><tr><th>SKU</th><th>Producto</th><th class="num">Disponible</th><th class="num">Reservado</th><th class="num">Lotes</th><th></th></tr></thead>
+                            <tbody id="stock-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESERVAS -->
+        <section class="view" id="view-reservas">
+            <div class="page-header">
+                <div>
+                    <h1>Reservas</h1>
+                    <p>Unidades apartadas. Las de venta se vencen a las 48 horas y las manuales en el plazo que elijas (máximo 7 días): al vencerse vuelven solas al disponible.</p>
+                </div>
+                <button class="btn btn-light" data-refresh>Actualizar</button>
+            </div>
+            <div class="card" data-roles="ADMIN_BODEGA,ENCARGADO">
+                <h2>Nueva reserva</h2>
+                <form id="reservation-form">
+                    <div class="form-row">
+                        <div class="field"><label for="r-product">Producto</label><select id="r-product" required></select></div>
+                        <div class="field">
+                            <label for="r-kind">Para qué</label>
+                            <select id="r-kind">
+                                <option value="SALE">Una venta (dura 48 horas)</option>
+                                <option value="MANUAL">Otro motivo (eliges cuánto dura)</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="r-quantity">Cantidad</label><input id="r-quantity" type="number" min="1" required></div>
+                        <div class="field role-hidden" id="r-hours-field"><label for="r-hours">Horas (máximo 168 = 7 días)</label><input id="r-hours" type="number" min="1" max="168" value="24"></div>
+                        <div class="field" id="r-client-field"><label for="r-client">Cliente</label><input id="r-client" placeholder="Opcional"></div>
+                        <div class="field"><label for="r-reason">Motivo</label><input id="r-reason" placeholder="Obligatorio si es por otro motivo"></div>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Reservar</button>
+                </form>
+            </div>
+            <div class="card mt">
+                <div class="card-header">
+                    <h2>Reservas de la bodega</h2>
+                    <select id="reservation-status">
+                        <option value="ACTIVE">Activas</option>
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Reserva</th><th>Producto</th><th class="num">Cantidad</th><th>Tipo</th><th>Vence</th><th>Estado</th><th></th></tr></thead>
+                        <tbody id="reservations-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOTES -->
+        <section class="view" id="view-lotes">
+            <div class="page-header">
+                <div>
+                    <h1>Lotes</h1>
+                    <p>Cada entrada queda en un lote. Las salidas y ventas sacan primero de los lotes que vencen antes.</p>
+                </div>
+                <div class="toolbar">
+                    <select id="lot-product"><option value="">Todos los productos</option></select>
+                    <label class="check"><input type="checkbox" id="lot-empty"> Ver lotes vacíos</label>
+                    <button class="btn btn-light" data-refresh>Actualizar</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Producto</th><th>Lote</th><th class="num">Quedan</th><th class="num">Entraron</th><th>Vence</th><th>Llegó</th><th></th></tr></thead>
+                        <tbody id="lots-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- COMPRAS Y VENTAS -->
+        <section class="view" id="view-transacciones">
+            <div class="page-header">
+                <div>
+                    <h1>Compras y ventas</h1>
+                    <p>Histórico de las compras y ventas de esta bodega, con su precio</p>
+                </div>
+                <div class="toolbar">
+                    <select id="transaction-type">
+                        <option value="">Compras y ventas</option>
+                        <option value="PURCHASE">Solo compras</option>
+                        <option value="SALE">Solo ventas</option>
+                    </select>
+                    <button class="btn btn-light" data-refresh>Actualizar</button>
+                </div>
+            </div>
+            <div class="grid grid-4">
+                <div class="card stat"><div class="label">Compras</div><div class="value" id="tx-purchases">-</div><div class="hint" id="tx-purchases-units"></div></div>
+                <div class="card stat"><div class="label">Total comprado</div><div class="value" id="tx-purchases-total">-</div></div>
+                <div class="card stat"><div class="label">Ventas</div><div class="value" id="tx-sales">-</div><div class="hint" id="tx-sales-units"></div></div>
+                <div class="card stat"><div class="label">Total vendido</div><div class="value" id="tx-sales-total">-</div></div>
+            </div>
+            <div class="card mt">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio</th><th class="num">Total</th><th>Proveedor o cliente</th><th>Lote</th><th>Usuario</th></tr></thead>
+                        <tbody id="transactions-body"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -152,13 +277,16 @@
             <div class="page-header">
                 <div>
                     <h1>Historial de movimientos</h1>
-                    <p>Todas las entradas, salidas, reservas y transferencias de esta bodega</p>
+                    <p>Todas las compras, ventas, entradas, salidas, reservas y transferencias de esta bodega</p>
                 </div>
                 <div class="toolbar">
                     <select id="history-type">
                         <option value="">Todos los tipos</option>
-                        <option value="IN">Solo entradas</option>
-                        <option value="OUT">Solo salidas</option>
+                        <option value="BUY">Compras</option>
+                        <option value="SELL">Ventas</option>
+                        <option value="IN">Entradas (todas)</option>
+                        <option value="OUT">Salidas (todas)</option>
+                        <option value="TR">Transferencias</option>
                         <option value="RES">Reservas</option>
                     </select>
                     <input id="history-search" type="search" placeholder="SKU o referencia">
@@ -168,8 +296,33 @@
             <div class="card">
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th><th>Usuario</th></tr></thead>
-                        <tbody id="history-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+                        <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th class="num">Cantidad</th><th>Lote</th><th class="num">Total</th><th>Referencia</th><th>Usuario</th></tr></thead>
+                        <tbody id="history-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ALERTAS -->
+        <section class="view" id="view-alertas">
+            <div class="page-header">
+                <div>
+                    <h1>Alertas</h1>
+                    <p>El vigilante de la bodega revisa cada minuto que el stock cuadre con los movimientos, las reservas y los lotes. También avisa de reservas y lotes vencidos. Cada alerta llega a la central.</p>
+                </div>
+                <div class="toolbar">
+                    <select id="alert-status">
+                        <option value="OPEN">Abiertas</option>
+                        <option value="">Todas</option>
+                    </select>
+                    <button class="btn btn-light" data-refresh>Actualizar</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Fecha</th><th>Nivel</th><th>Alerta</th><th>Estado</th><th></th></tr></thead>
+                        <tbody id="alerts-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -178,17 +331,28 @@
 
     <!-- Historial de un producto -->
     <div class="modal" id="product-modal">
-        <div class="modal-box">
+        <div class="modal-box wide">
             <div class="card-header">
                 <h2 id="product-modal-title">Movimientos</h2>
                 <button class="btn btn-light" data-close>Cerrar</button>
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th>Referencia</th><th>Usuario</th></tr></thead>
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th>Lote</th><th class="num">Precio</th><th class="num">Total</th><th>Referencia</th><th>Usuario</th><th class="num">Disponible</th><th class="num">Reservado</th></tr></thead>
                     <tbody id="product-modal-body"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Ventana para acciones que piden datos (vender una reserva, liberarla, revisar una alerta, ver un lote) -->
+    <div class="modal" id="action-modal">
+        <div class="modal-box">
+            <div class="card-header">
+                <h2 id="action-title">-</h2>
+                <button class="btn btn-light" data-close>Cerrar</button>
+            </div>
+            <div id="action-body"></div>
         </div>
     </div>
 

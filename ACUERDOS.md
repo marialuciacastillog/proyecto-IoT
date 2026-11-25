@@ -17,6 +17,8 @@
 - correlationId = sale del encabezado X-Correlation-ID de la petición (o se crea uno); en transferencias es el id de la transferencia
 - productId = código del producto (sku), igual en todas las bodegas
 - quantity = cantidad TOTAL después del movimiento
+- details (opcional) = qué movimiento fue: `movementType`, `movementQuantity`, `unitPrice`, `total`, `lotCode`, `reference`...
+  Con `eventType: STOCK_ALERT` el mensaje es una alerta de la bodega y details trae `alertType`, `level`, `title` y `message`
 
 ## Mensaje de reportes (API de reportes -> worker de reportes)
 { "job_id": "uuid", "report_type": "global_inventory", "format": "csv" }
@@ -72,6 +74,8 @@
   Una bodega archivada no acepta usuarios, productos ni transferencias nuevas. Se reactiva con `PATCH {"status": "ACTIVE"}`.
 - Catálogo (RF-04): `GET/POST /products`, `GET/PATCH /products/{code}`. Campos: `product_code`, `name`, `category`, `description`, `supplier`, `unit`, `cost`, `sale_price`, `wholesale_price`, `initial_quantity`.
   Regla: `wholesale_price <= sale_price`. Solo el Admin Global crea y edita; todos los roles consultan.
+  Regla: no puede haber dos productos con el mismo nombre y el mismo proveedor (sin importar mayúsculas, tildes ni espacios) -> 409.
+  Aplica al crear, al editar y en las solicitudes. Si solo coincide el nombre, la solicitud trae `similar` para que el Admin Global lo vea al revisar.
 - Productos de cada bodega (RF-08): el Admin por Bodega hace `POST /warehouses/{su bodega}/products` con `{"product_code", "initial_quantity"}` (202).
   La central guarda el aviso en `catalog_outbox`, el publicador lo manda a SNS `catalog-events` y cada bodega lo recibe en su cola `catalog-wh-00X`.
   El worker de la bodega crea el producto y registra la cantidad inicial como un RECEIPT a nombre de quien la pidió.
@@ -91,7 +95,40 @@
   - Cada notificación va para un rol y, si es de una bodega, solo para esa bodega. Categorías: SOLICITUD, TRANSFERENCIA, DLQ, ALERTA.
   - Las crean: el catálogo (solicitud nueva -> Admin Global; aprobada o rechazada -> Admin por Bodega), el orquestador
     (transferencia FAILED o RESERVATION_RELEASED -> Admin Global y las dos bodegas) y el vigilante de DLQ (mensajes nuevos -> Admin Global).
-  - El código para crear notificaciones está en `notify.py` (mismo archivo en catálogo, transferencias y notificaciones).
+  - El código para crear notificaciones está en `notify.py` (mismo archivo en catálogo, transferencias, notificaciones y sincronización).
+  - El worker de sincronización convierte cada `STOCK_ALERT` de una bodega en una notificación ALERTA para el Admin Global y el de esa bodega.
 - DLQ (solo Admin Global): `GET /dlq`, `GET /dlq/{cola}/messages`, `POST /dlq/{cola}/messages/{id}/redrive` y `.../discard` con `{"justification"}`.
   Reprocesar devuelve el mensaje a la cola original (nombre sin `-dlq`); es seguro porque los workers son idempotentes.
   Descartar exige justificación. Cada acción queda en `dlq_actions` con quién la hizo.
+
+## Operación de bodega
+
+- Movimientos a mano (`POST /inventory/movements`, Encargado o Admin por Bodega):
+  - `PURCHASE` (compra) y `SALE` (venta) llevan precio (RF-13). Si no se manda `unit_price`, se usa el del catálogo:
+    compra = `cost`; venta = `sale_price` o `wholesale_price` según `price_type` (`DETAL` o `MAYORISTA`). `counterparty` = proveedor o cliente.
+  - `RECEIPT`, `SHIPMENT` y `RETURN` son entradas, salidas y devoluciones sin precio (ajustes, bajas).
+  - Las reservas ya no van por aquí: van por `/reservations`. `TRANSFER_IN`, `RESERVATION_CONFIRM`, `RESERVATION` y `RELEASE` los hace el sistema.
+- Lotes (RF-11, RF-12), tabla `lots`:
+  - Todo lo que entra va a un lote (`lot_code`, `expiry_date` opcional). Sin lote: `L-AAAAMMDD` (devoluciones `DEV-AAAAMMDD`).
+    La cantidad inicial del catálogo entra al lote `INICIAL`; una transferencia entra a un lote con el id de la transferencia.
+  - Lo que sale se saca de los lotes que vencen primero (o del lote que se diga). Las ventas nunca sacan de un lote vencido.
+  - `movement_lots` guarda de qué lote salió cada movimiento. Siempre: suma de lotes = disponible + reservado.
+  - `GET /lots?product_id=&include_empty=` y `GET /lots/{product_id}/{lot_code}` (seguimiento del lote).
+- Compras y ventas: `GET /transactions?type=PURCHASE|SALE` con totales.
+- Historial de un producto (RF-27): `GET /inventory/{id}/movements` (con lote, precio, usuario y cómo quedó el stock). Toda la bodega: `GET /movements`.
+- Reservas, tabla `reservations` (cada reserva es su propio registro):
+  - `SALE` (venta): se vence a las 48 horas. `MANUAL`: vencimiento obligatorio, de 1 a 168 horas (7 días), y motivo.
+  - `TRANSFER`: la crea la saga en el RESERVE y la cierra en el COMMIT (CONSUMED) o el RELEASE (RELEASED). No la toca una persona.
+  - `POST /reservations`, `GET /reservations?status=ACTIVE`, `POST /reservations/{id}/sell` y `POST /reservations/{id}/release`.
+  - Estados: ACTIVE, SOLD, RELEASED, EXPIRED, CONSUMED.
+- Vigilante de cada bodega (`app/modules/alerts/sweeper.py`, contenedor `vigilante_WH-00X`, cada 60 s):
+  - Vence las reservas SALE y MANUAL que pasaron su fecha (RELEASE a nombre de `sistema:vencimiento`) y avisa.
+  - Avisa, sin liberar, si una reserva de transferencia lleva más de 24 horas abierta.
+  - Avisa si un lote vencido todavía tiene unidades.
+  - Incongruencias (RF-15): stock negativo, stock distinto a la suma de sus movimientos, reservado distinto a la suma
+    de las reservas activas, disponible + reservado distinto a la suma de los lotes. Se calcula sobre una sola foto de la base.
+  - Cada alerta queda en `stock_alerts` (OPEN, RESOLVED, REVIEWED) y sale a la central como `STOCK_ALERT` por `pending_events`.
+    No se repite mientras el problema siga. Cuando vuelve a cuadrar se marca resuelta y se avisa.
+  - `GET /alerts?status=OPEN` y `POST /alerts/{id}/review` con `{"note"}` (Admin por Bodega o Admin Global).
+- Transferencias: si el orquestador no puede mandar una orden (por ejemplo, la bodega destino está registrada pero no tiene cola),
+  el estado igual avanza y la orden se reintenta; al vencerse el tiempo, la transferencia falla o se compensa. Así no quedan unidades apartadas para siempre.

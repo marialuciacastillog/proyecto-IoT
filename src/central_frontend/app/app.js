@@ -910,10 +910,17 @@ function openRequest(requestId) {
         decision = '<p class="mt">' + requestBadge(r.status) + " por " + esc(r.decided_by) + " el " + formatDate(r.decided_at) +
             (r.decision_note ? " · " + esc(r.decision_note) : "") + "</p>";
     }
+    // Productos del catálogo con el mismo nombre: puede ser el mismo producto pedido dos veces
+    let similar = "";
+    if (r.similar && r.similar.length > 0) {
+        similar = '<div class="notice mt">Ojo: en el catálogo ya hay un producto con ese nombre: ' +
+            r.similar.map(item => "<strong>" + esc(item) + "</strong>").join(", ") +
+            ". Si es el mismo, recházala y pídele que lo agregue desde el catálogo. Si el proveedor también es el mismo, no se va a poder aprobar.</div>";
+    }
     document.getElementById("detail-title").textContent = r.label + " · " + REQUEST_TYPES[r.request_type] + " " + r.product_code;
     document.getElementById("detail-body").innerHTML =
         '<p class="sub">Pedida por ' + esc(r.requested_by) + " (" + esc(r.warehouse_id) + ") el " + formatDate(r.created_at) + "</p>" +
-        "<p><strong>Motivo:</strong> " + esc(r.reason) + '</p><div class="table-wrap mt">' + rows + "</div>" + decision;
+        "<p><strong>Motivo:</strong> " + esc(r.reason) + "</p>" + similar + '<div class="table-wrap mt">' + rows + "</div>" + decision;
     document.getElementById("detail-modal").classList.add("open");
 }
 

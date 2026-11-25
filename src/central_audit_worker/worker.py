@@ -35,13 +35,22 @@ createAuditSql = """
         received_at    TIMESTAMP DEFAULT clock_timestamp()
     );
     -- Usuario que hizo el movimiento (RF-28)
-    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS performed_by VARCHAR(80)
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS performed_by VARCHAR(80);
+    -- Qué movimiento fue (compra, venta, entrada...), cuántas unidades, precio y lote (RF-13, RF-27).
+    -- En las alertas (STOCK_ALERT) details trae el tipo de alerta y su mensaje.
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS movement_type VARCHAR(30);
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS movement_quantity INTEGER;
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS unit_price NUMERIC(14, 2);
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS total NUMERIC(14, 2);
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS lot_code VARCHAR(200);
+    ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS details JSONB
 """
 
 # Si el mismo evento llega dos veces, no se duplica (event_id es la llave)
 saveAuditSql = """
-    INSERT INTO audit_log (event_id, event_type, correlation_id, warehouse_id, product_id, quantity, created_at, performed_by)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO audit_log (event_id, event_type, correlation_id, warehouse_id, product_id, quantity, created_at, performed_by,
+                           movement_type, movement_quantity, unit_price, total, lot_code, details)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (event_id) DO NOTHING
 """
 
@@ -58,6 +67,7 @@ def connectDatabase():
 
 
 def saveEvent(connection, event):
+    details = event.get("details") if isinstance(event.get("details"), dict) else {}
     with connection.cursor() as cursor:
         cursor.execute(saveAuditSql, (
             event["eventId"],
@@ -67,7 +77,13 @@ def saveEvent(connection, event):
             event["productId"],
             event["quantity"],
             event["createdAt"],
-            event.get("performedBy", "sistema")
+            event.get("performedBy", "sistema"),
+            details.get("movementType"),
+            details.get("movementQuantity"),
+            details.get("unitPrice"),
+            details.get("total"),
+            details.get("lotCode"),
+            json.dumps(details, ensure_ascii=False) if details else None
         ))
         saved = cursor.rowcount == 1
     connection.commit()

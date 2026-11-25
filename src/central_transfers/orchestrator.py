@@ -90,6 +90,19 @@ def markSent(cursor, transfer, expiresAt):
                    (expiresAt, transfer["transfer_id"]))
 
 
+# Manda la orden. Si no se puede (por ejemplo, la bodega está registrada pero todavía no tiene su cola),
+# el cambio de estado igual se guarda y la orden queda sin enviar: se reintenta en la próxima vuelta y,
+# si pasa el tiempo límite, la transferencia falla o se compensa. Así unas unidades apartadas
+# nunca quedan atrapadas porque el destino no existe.
+def trySend(cursor, sqsClient, warehouseId, transfer, command, expiresAt):
+    try:
+        sendCommand(sqsClient, warehouseId, transfer, command, expiresAt)
+        markSent(cursor, transfer, expiresAt)
+    except Exception as error:
+        cursor.execute("UPDATE transfers SET expires_at = %s WHERE transfer_id = %s", (expiresAt, transfer["transfer_id"]))
+        print("No se pudo mandar", command, "a", warehouseId, "para", transfer["transfer_id"], ", se reintenta:", error)
+
+
 # Mira cada transferencia sin terminar y manda la orden que le toca
 def driveTransfer(cursor, sqsClient, transfer):
     status = transfer["status"]
@@ -98,31 +111,25 @@ def driveTransfer(cursor, sqsClient, transfer):
     if status == "REQUESTED":
         expiresAt = nowUtc() + datetime.timedelta(seconds=commandTtlSeconds)
         changeStatus(cursor, transfer["transfer_id"], "RESERVING_SOURCE")
-        sendCommand(sqsClient, source, transfer, "RESERVE", expiresAt)
-        markSent(cursor, transfer, expiresAt)
+        trySend(cursor, sqsClient, source, transfer, "RESERVE", expiresAt)
     elif status == "RESERVING_SOURCE":
         if isTimedOut(transfer):
             changeStatus(cursor, transfer["transfer_id"], "FAILED", "Timeout: la bodega origen no respondió")
         elif isStale(transfer):
-            sendCommand(sqsClient, source, transfer, "RESERVE", transfer["expires_at"])
-            markSent(cursor, transfer, transfer["expires_at"])
+            trySend(cursor, sqsClient, source, transfer, "RESERVE", transfer["expires_at"])
     elif status == "SOURCE_RESERVED":
         expiresAt = nowUtc() + datetime.timedelta(seconds=commandTtlSeconds)
         changeStatus(cursor, transfer["transfer_id"], "IN_TRANSIT")
-        sendCommand(sqsClient, destination, transfer, "RECEIVE", expiresAt)
-        markSent(cursor, transfer, expiresAt)
+        trySend(cursor, sqsClient, destination, transfer, "RECEIVE", expiresAt)
     elif status == "IN_TRANSIT":
         if isTimedOut(transfer):
             changeStatus(cursor, transfer["transfer_id"], "COMPENSATING", "Timeout: la bodega destino no respondió")
         elif isStale(transfer):
-            sendCommand(sqsClient, destination, transfer, "RECEIVE", transfer["expires_at"])
-            markSent(cursor, transfer, transfer["expires_at"])
+            trySend(cursor, sqsClient, destination, transfer, "RECEIVE", transfer["expires_at"])
     elif status == "DESTINATION_RECEIVED" and isStale(transfer):
-        sendCommand(sqsClient, source, transfer, "COMMIT", None)
-        markSent(cursor, transfer, None)
+        trySend(cursor, sqsClient, source, transfer, "COMMIT", None)
     elif status == "COMPENSATING" and isStale(transfer):
-        sendCommand(sqsClient, source, transfer, "RELEASE", None)
-        markSent(cursor, transfer, None)
+        trySend(cursor, sqsClient, source, transfer, "RELEASE", None)
 
 
 def driveTransfers(connection, sqsClient):

@@ -18,7 +18,10 @@ def buildMessage(event):
         "quantity": event.quantity,
         "createdAt": event.created_at.isoformat()
     }
-    return json.dumps(message)
+    # Datos extra (tipo de movimiento, precio, lote... o la alerta). Los workers que no los usan los ignoran
+    if event.details:
+        message["details"] = json.loads(event.details)
+    return json.dumps(message, ensure_ascii=False)
 
 
 # Fase 3: si hay tema SNS, se publica UNA vez en el tema y SNS lo copia a todas las colas
