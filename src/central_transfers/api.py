@@ -11,7 +11,7 @@ app = FastAPI(title="Transferencias entre bodegas (Fase 6)")
 defaultWarehouses = ["wh-001", "wh-002", "wh-003"]
 
 
-# Etapa B: las bodegas válidas son las ACTIVAS del registro de la central (catálogo).
+# Las bodegas válidas son las ACTIVAS del registro de la central (catálogo).
 # Si el catálogo todavía no ha creado su tabla, se usan las 3 de siempre.
 def activeWarehouses(connection):
     warehouses = defaultWarehouses
@@ -39,7 +39,7 @@ def health():
 
 
 # Responde enseguida con 202: la transferencia la hace el orquestador por detrás
-# Etapa A: la piden el Administrador Global o el Administrador por Bodega de la bodega ORIGEN
+# La piden el Administrador Global o el Administrador por Bodega de la bodega ORIGEN
 @app.post("/transfers", status_code=202)
 def createTransfer(request: TransferRequest, user=Depends(requireRoles(ADMIN_GLOBAL, ADMIN_BODEGA))):
     checkWarehouse(user, request.source_warehouse)

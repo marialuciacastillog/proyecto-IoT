@@ -2,16 +2,17 @@
 //   /svc/reports/   -> API de reportes e inventario global (iot-reports-api)
 //   /svc/transfers/ -> API de transferencias (central_transfers_api)
 //   /svc/iot/       -> ingesta IoT (iot_ingestion), solo para ver si está viva
-//   /svc/identity/  -> identidad: login y usuarios (central_identity), Etapa A
+//   /svc/identity/  -> identidad: login y usuarios (central_identity)
 const SERVICES = {
     reports: "/svc/reports",
     transfers: "/svc/transfers",
     iot: "/svc/iot",
     identity: "/svc/identity",
-    catalog: "/svc/catalog"
+    catalog: "/svc/catalog",
+    notifications: "/svc/notifications"
 };
 
-// Etapa A: quién puede usar cada parte (los mismos permisos que revisa el backend)
+// Quién puede usar cada parte (los mismos permisos que revisa el backend)
 const REPORT_ROLES = ["ADMIN_GLOBAL", "LIDER"];
 
 const FINAL_TRANSFER = ["COMPLETED", "FAILED", "RESERVATION_RELEASED"];
@@ -26,6 +27,9 @@ const state = {
     catalog: [],
     editingWarehouse: null,
     editingProduct: null,
+    requests: [],
+    notifications: [],
+    dlq: [],
     timer: null
 };
 
@@ -58,7 +62,7 @@ function toast(message, type) {
     element.timer = setTimeout(() => { element.className = "toast"; }, 4500);
 }
 
-// Etapa A: cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
+// Cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
 async function api(service, path, options) {
     const request = Object.assign({}, options);
     request.headers = Object.assign({}, request.headers, authHeader());
@@ -127,6 +131,7 @@ function checkServices() {
     checkService("iot", "status-iot", "Ingesta IoT");
     checkService("identity", "status-identity", "Identidad");
     checkService("catalog", "status-catalog", "Catálogo");
+    checkService("notifications", "status-notifications", "Notificaciones");
 }
 
 
@@ -374,7 +379,7 @@ async function refresh() {
 }
 
 
-// ---------- Usuarios (Etapa A, solo Administrador Global) ----------
+// ---------- Usuarios (solo Administrador Global) ----------
 
 async function loadUsers() {
     try {
@@ -390,7 +395,7 @@ async function loadUsers() {
 
 function renderUsers() {
     const body = document.getElementById("users-body");
-    const me = getSession();
+    const me = getSession() || { username: "" };
     body.innerHTML = state.users.map(u => {
         const status = u.active ? '<span class="badge ok">Activo</span>' : '<span class="badge neutral">Desactivado</span>';
         let actions = "";
@@ -462,7 +467,7 @@ async function resetUserPassword(userId) {
 }
 
 
-// ---------- Bodegas (Etapa B) ----------
+// ---------- Bodegas ----------
 
 // Llena los selectores de bodega (transferencias y usuarios) con las bodegas ACTIVAS del registro
 function fillWarehouseSelects() {
@@ -601,7 +606,7 @@ async function restoreWarehouse(warehouseId) {
 }
 
 
-// ---------- Catálogo (Etapa B) ----------
+// ---------- Catálogo ----------
 
 async function loadCatalog() {
     const search = document.getElementById("c-search").value.trim();
@@ -617,7 +622,8 @@ async function loadCatalog() {
 
 function renderCatalog() {
     const body = document.getElementById("catalog-body");
-    const session = getSession();
+    // Si la sesión se cerró mientras cargaban los datos, se pinta sin acciones
+    const session = getSession() || { role: "", warehouseId: "" };
     if (state.catalog.length === 0) {
         body.innerHTML = '<tr><td colspan="9" class="empty">No hay productos en el catálogo</td></tr>';
         return;
@@ -708,7 +714,7 @@ async function saveProduct(event) {
 
 // El Administrador por Bodega agrega un producto del catálogo a su bodega (RF-08)
 async function assignProduct(code) {
-    const session = getSession();
+    const session = getSession() || { warehouseId: "" };
     const product = state.catalog.find(item => item.product_code === code);
     const answer = window.prompt("¿Con cuántas unidades entra " + code + " a " + session.warehouseId + "?", String(product.initial_quantity));
     if (answer !== null) {
@@ -729,10 +735,342 @@ async function assignProduct(code) {
 }
 
 
-// ---------- Etapa A: entrada después del login ----------
+// ---------- Solicitudes de productos (RF-05, RF-06, RF-07) ----------
+
+const FIELD_LABELS = {
+    name: "Nombre", category: "Categoría", supplier: "Proveedor", unit: "Unidad", cost: "Costo",
+    sale_price: "Precio de venta", wholesale_price: "Precio mayorista", initial_quantity: "Cantidad inicial",
+    description: "Descripción"
+};
+const REQUEST_TYPES = { NEW_PRODUCT: "Producto nuevo", UPDATE_PRODUCT: "Cambio de producto" };
+const MONEY_FIELDS = ["cost", "sale_price", "wholesale_price"];
+
+function requestBadge(status) {
+    const labels = { PENDING: ["Pendiente", "warn"], APPROVED: ["Aprobada", "ok"], REJECTED: ["Rechazada", "error"] };
+    const label = labels[status] || [status, "neutral"];
+    return '<span class="badge ' + label[1] + '">' + esc(label[0]) + "</span>";
+}
+
+function showFieldValue(field, value) {
+    let text = value === null || value === undefined || value === "" ? "-" : String(value);
+    if (MONEY_FIELDS.includes(field) && text !== "-") {
+        text = formatMoney(value);
+    }
+    return esc(text);
+}
+
+async function loadRequests() {
+    const status = document.getElementById("r-filter").value;
+    try {
+        state.requests = await api("catalog", "/requests" + (status ? "?status=" + status : ""));
+    } catch (error) {
+        state.requests = [];
+        document.getElementById("requests-body").innerHTML = '<tr><td colspan="8" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    renderRequests();
+}
+
+function renderRequests() {
+    const body = document.getElementById("requests-body");
+    const isAdmin = hasRole("ADMIN_GLOBAL");
+    if (state.requests.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty">No hay solicitudes</td></tr>';
+        return;
+    }
+    body.innerHTML = state.requests.map(r => {
+        const action = isAdmin && r.status === "PENDING" ? "Revisar" : "Ver";
+        return "<tr><td><strong>" + esc(r.label) + "</strong></td><td>" + esc(REQUEST_TYPES[r.request_type]) + "</td><td>" +
+            esc(r.product_code) + (r.data.name ? '<span class="sub">' + esc(r.data.name) + "</span>" : "") + "</td><td>" +
+            esc(r.warehouse_id) + "</td><td>" + esc(r.requested_by) + "</td><td>" + requestBadge(r.status) + "</td><td>" +
+            formatDate(r.created_at) + '</td><td><button class="link" data-request="' + r.id + '">' + action + "</button></td></tr>";
+    }).join("");
+}
+
+// Llena el formulario con los datos actuales del producto (para pedir un cambio)
+function fillRequestFromProduct() {
+    const product = state.catalog.find(p => p.product_code === document.getElementById("q-product").value);
+    if (product) {
+        document.getElementById("q-name").value = product.name;
+        document.getElementById("q-category").value = product.category;
+        document.getElementById("q-supplier").value = product.supplier;
+        document.getElementById("q-cost").value = product.cost;
+        document.getElementById("q-price").value = product.sale_price;
+        document.getElementById("q-wholesale").value = product.wholesale_price;
+        document.getElementById("q-unit").value = product.unit;
+        document.getElementById("q-description").value = product.description || "";
+    }
+}
+
+function toggleRequestType() {
+    const isUpdate = document.getElementById("q-type").value === "UPDATE_PRODUCT";
+    document.getElementById("q-code-field").classList.toggle("role-hidden", isUpdate);
+    document.getElementById("q-product-field").classList.toggle("role-hidden", !isUpdate);
+    document.getElementById("q-initial").closest(".field").classList.toggle("role-hidden", isUpdate);
+    document.getElementById("q-hint").textContent = isUpdate
+        ? "Cambia solo lo que quieres corregir. Si se aprueba, el cambio llega a todas las bodegas que manejan el producto."
+        : "Si se aprueba, el producto se crea en el catálogo y se agrega a tu bodega con la cantidad inicial.";
+    if (isUpdate && state.catalog.length === 0) {
+        document.getElementById("q-product").innerHTML = '<option value="">El catálogo todavía no tiene productos</option>';
+    } else if (isUpdate) {
+        document.getElementById("q-product").innerHTML = state.catalog.map(p =>
+            '<option value="' + esc(p.product_code) + '">' + esc(p.product_code) + " · " + esc(p.name) + "</option>"
+        ).join("");
+        fillRequestFromProduct();
+    } else {
+        document.getElementById("request-form").reset();
+        document.getElementById("q-type").value = "NEW_PRODUCT";
+        document.getElementById("q-unit").value = "UNIDADES";
+        document.getElementById("q-initial").value = "0";
+    }
+}
+
+function readRequestForm() {
+    return {
+        name: document.getElementById("q-name").value.trim(),
+        category: document.getElementById("q-category").value.trim(),
+        supplier: document.getElementById("q-supplier").value.trim(),
+        unit: document.getElementById("q-unit").value.trim(),
+        cost: document.getElementById("q-cost").value,
+        sale_price: document.getElementById("q-price").value,
+        wholesale_price: document.getElementById("q-wholesale").value,
+        description: document.getElementById("q-description").value.trim() || null
+    };
+}
+
+async function createRequest(event) {
+    event.preventDefault();
+    const form = event.target;
+    const type = document.getElementById("q-type").value;
+    const values = readRequestForm();
+    let code = document.getElementById("q-code").value.trim().toUpperCase();
+    let data = values;
+    let valid = true;
+    if (type === "NEW_PRODUCT") {
+        data.initial_quantity = parseInt(document.getElementById("q-initial").value, 10) || 0;
+    } else {
+        // En un cambio solo se manda lo que es distinto a lo que ya tiene el catálogo
+        code = document.getElementById("q-product").value;
+        const product = state.catalog.find(p => p.product_code === code);
+        data = {};
+        if (!product) {
+            toast("Elige el producto que quieres cambiar (si la lista está vacía, espera a que cargue el catálogo)", "error");
+            valid = false;
+        }
+        Object.keys(product ? values : {}).forEach(field => {
+            const current = product[field] === null || product[field] === undefined ? "" : String(product[field]);
+            const proposed = values[field] === null ? "" : String(values[field]);
+            const changed = MONEY_FIELDS.includes(field) ? Number(current) !== Number(proposed) : current !== proposed;
+            if (changed) {
+                data[field] = values[field];
+            }
+        });
+        if (product && Object.keys(data).length === 0) {
+            toast("No cambiaste ningún dato del producto", "error");
+            valid = false;
+        }
+    }
+    if (valid) {
+        form.querySelector("button[type=submit]").disabled = true;
+        try {
+            const result = await api("catalog", "/requests", postJson({
+                request_type: type, product_code: code, data: data, reason: document.getElementById("q-reason").value.trim()
+            }));
+            toast("Solicitud " + result.label + " enviada al Administrador Global");
+            document.getElementById("q-reason").value = "";
+            toggleRequestType();
+            await loadRequests();
+        } catch (error) {
+            toast(error.message, "error");
+        }
+        form.querySelector("button[type=submit]").disabled = false;
+    }
+}
+
+function openRequest(requestId) {
+    const r = state.requests.find(item => item.id === requestId);
+    const product = state.catalog.find(p => p.product_code === r.product_code);
+    let rows = "";
+    if (r.request_type === "UPDATE_PRODUCT") {
+        rows = Object.keys(r.data).map(field =>
+            "<tr><td>" + esc(FIELD_LABELS[field] || field) + "</td><td>" + showFieldValue(field, product ? product[field] : "-") +
+            "</td><td><strong>" + showFieldValue(field, r.data[field]) + "</strong></td></tr>").join("");
+        rows = '<table class="changes"><thead><tr><th>Dato</th><th>Actual</th><th>Propuesto</th></tr></thead><tbody>' + rows + "</tbody></table>";
+    } else {
+        rows = Object.keys(r.data).map(field =>
+            "<tr><td>" + esc(FIELD_LABELS[field] || field) + "</td><td>" + showFieldValue(field, r.data[field]) + "</td></tr>").join("");
+        rows = '<table class="changes"><tbody>' + rows + "</tbody></table>";
+    }
+    let decision = "";
+    if (r.status === "PENDING" && hasRole("ADMIN_GLOBAL")) {
+        decision = '<div class="field mt"><label for="d-note">Nota para quien la pidió</label><textarea id="d-note" placeholder="Obligatoria si la rechazas"></textarea></div>' +
+            '<div class="toolbar"><button class="btn btn-primary" data-decide="approve" data-id="' + r.id + '">Aprobar</button>' +
+            '<button class="btn btn-light" data-decide="reject" data-id="' + r.id + '">Rechazar</button></div>';
+    } else if (r.status !== "PENDING") {
+        decision = '<p class="mt">' + requestBadge(r.status) + " por " + esc(r.decided_by) + " el " + formatDate(r.decided_at) +
+            (r.decision_note ? " · " + esc(r.decision_note) : "") + "</p>";
+    }
+    document.getElementById("detail-title").textContent = r.label + " · " + REQUEST_TYPES[r.request_type] + " " + r.product_code;
+    document.getElementById("detail-body").innerHTML =
+        '<p class="sub">Pedida por ' + esc(r.requested_by) + " (" + esc(r.warehouse_id) + ") el " + formatDate(r.created_at) + "</p>" +
+        "<p><strong>Motivo:</strong> " + esc(r.reason) + '</p><div class="table-wrap mt">' + rows + "</div>" + decision;
+    document.getElementById("detail-modal").classList.add("open");
+}
+
+async function decideRequest(requestId, action) {
+    const note = document.getElementById("d-note").value.trim();
+    try {
+        const result = await api("catalog", "/requests/" + requestId + "/" + action, postJson({ note: note }));
+        toast(action === "approve" ? result.message : "Solicitud " + result.label + " rechazada");
+        document.getElementById("detail-modal").classList.remove("open");
+        await Promise.all([loadRequests(), loadCatalog()]);
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+
+// ---------- Notificaciones (RF-16) ----------
+
+const CATEGORY_LABELS = { SOLICITUD: "Solicitud", TRANSFERENCIA: "Transferencia", DLQ: "DLQ", ALERTA: "Alerta" };
+
+function levelBadge(notification) {
+    const kinds = { INFO: "info", WARNING: "warn", ERROR: "error" };
+    return '<span class="badge ' + (kinds[notification.level] || "neutral") + '">' +
+        esc(CATEGORY_LABELS[notification.category] || notification.category) + "</span>";
+}
+
+function showUnread(count) {
+    const badge = document.getElementById("unread-count");
+    badge.textContent = count;
+    badge.classList.toggle("role-hidden", !count);
+}
+
+async function loadNotifications() {
+    const onlyUnread = document.getElementById("n-unread").checked;
+    try {
+        const data = await api("notifications", "/notifications?unread_only=" + onlyUnread);
+        state.notifications = data.notifications;
+        showUnread(data.unread);
+    } catch (error) {
+        state.notifications = [];
+        document.getElementById("notifications-body").innerHTML = '<tr><td colspan="4" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    renderNotifications();
+}
+
+function renderNotifications() {
+    const body = document.getElementById("notifications-body");
+    if (state.notifications.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="empty">No hay notificaciones</td></tr>';
+        return;
+    }
+    body.innerHTML = state.notifications.map(n =>
+        '<tr class="' + (n.read ? "" : "unread") + '"><td>' + formatDate(n.created_at) + "</td><td>" + levelBadge(n) + "</td><td>" +
+        esc(n.title) + '<span class="sub">' + esc(n.message) + "</span></td><td>" +
+        (n.read ? '<span class="sub">Leída</span>' : '<button class="link" data-notification="' + n.id + '">Marcar leída</button>') + "</td></tr>"
+    ).join("");
+}
+
+async function markNotification(notificationId) {
+    try {
+        await api("notifications", "/notifications/" + notificationId + "/read", { method: "POST" });
+        await loadNotifications();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function markAllNotifications() {
+    try {
+        const result = await api("notifications", "/notifications/read-all", { method: "POST" });
+        toast(result.marked + " notificación(es) marcadas como leídas");
+        await loadNotifications();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function refreshUnread() {
+    try {
+        const data = await api("notifications", "/notifications/unread-count");
+        showUnread(data.unread);
+    } catch (error) {
+        showUnread(0);
+    }
+}
+
+
+// ---------- DLQ (solo Administrador Global) ----------
+
+async function loadDlq() {
+    try {
+        state.dlq = await api("notifications", "/dlq");
+        const actions = await api("notifications", "/dlq/actions");
+        document.getElementById("dlq-actions-body").innerHTML = actions.length === 0
+            ? '<tr><td colspan="5" class="empty">Todavía no se ha atendido ningún mensaje</td></tr>'
+            : actions.map(a => "<tr><td>" + formatDate(a.created_at) + "</td><td>" + esc(a.queue_name) + "</td><td>" +
+                (a.action === "REDRIVE" ? '<span class="badge ok">Reprocesado</span>' : '<span class="badge neutral">Descartado</span>') +
+                "</td><td>" + esc(a.justification || "-") + "</td><td>" + esc(a.performed_by) + "</td></tr>").join("");
+    } catch (error) {
+        state.dlq = [];
+        document.getElementById("dlq-body").innerHTML = '<tr><td colspan="4" class="empty">' + esc(error.message) + "</td></tr>";
+        return;
+    }
+    document.getElementById("dlq-body").innerHTML = state.dlq.map(q =>
+        "<tr><td><strong>" + esc(q.queue) + "</strong></td><td>" + esc(q.source_queue) + '</td><td class="num">' +
+        (q.messages > 0 ? '<span class="badge error">' + q.messages + "</span>" : "0") + "</td><td>" +
+        (q.messages > 0 ? '<button class="link" data-dlq="' + esc(q.queue) + '">Ver mensajes</button>' : "") + "</td></tr>"
+    ).join("");
+}
+
+async function openDlq(queue) {
+    document.getElementById("detail-title").textContent = "Mensajes en " + queue;
+    document.getElementById("detail-body").innerHTML = '<p class="sub">Cargando...</p>';
+    document.getElementById("detail-modal").classList.add("open");
+    try {
+        const data = await api("notifications", "/dlq/" + encodeURIComponent(queue) + "/messages");
+        document.getElementById("detail-body").innerHTML = data.messages.length === 0
+            ? '<p class="sub">La DLQ está vacía</p>'
+            : data.messages.map(m =>
+                '<div class="dlq-message"><p><strong>Motivo:</strong> ' + esc(m.reason) + '<span class="sub">Llegó el ' + formatDate(m.sent_at) +
+                '</span></p><pre class="body">' + esc(m.body) + '</pre><div class="toolbar">' +
+                '<button class="btn btn-primary" data-dlq-redrive="' + esc(m.message_id) + '" data-queue="' + esc(queue) + '">Reprocesar</button>' +
+                '<button class="btn btn-light" data-dlq-discard="' + esc(m.message_id) + '" data-queue="' + esc(queue) + '">Descartar</button></div></div>'
+            ).join("");
+    } catch (error) {
+        document.getElementById("detail-body").innerHTML = '<p class="sub">' + esc(error.message) + "</p>";
+    }
+}
+
+async function actOnDlq(queue, messageId, action) {
+    let justification = "";
+    let proceed = true;
+    if (action === "discard") {
+        justification = window.prompt("¿Por qué se descarta este mensaje? (queda registrado)") || "";
+        proceed = justification.trim().length > 0;
+    } else {
+        proceed = window.confirm("¿Devolver el mensaje a " + queue.replace(/-dlq$/, "") + "?");
+    }
+    if (proceed) {
+        try {
+            const result = await api("notifications", "/dlq/" + encodeURIComponent(queue) + "/messages/" +
+                encodeURIComponent(messageId) + "/" + action, postJson({ justification: justification }));
+            toast(result.message);
+            await openDlq(queue);
+            await loadDlq();
+        } catch (error) {
+            toast(error.message, "error");
+        }
+    }
+}
+
+
+// ---------- Entrada después del login ----------
 
 async function startApp(session) {
-    // Etapa B: primero las bodegas del registro, porque llenan los selectores de bodega
+    // Primero las bodegas del registro, porque llenan los selectores de bodega
     await loadWarehouses();
     loadCatalog();
     // El Administrador por Bodega solo puede pedir transferencias desde su bodega
@@ -752,6 +1090,14 @@ async function startApp(session) {
     if (hasRole("ADMIN_GLOBAL")) {
         toggleWarehouseField();
         loadUsers();
+        loadDlq();
+    }
+    if (hasRole("ADMIN_GLOBAL", "ADMIN_BODEGA")) {
+        loadRequests();
+        loadNotifications();
+        // El contador de notificaciones se revisa cada 30 segundos
+        clearInterval(state.unreadTimer);
+        state.unreadTimer = setInterval(refreshUnread, 30000);
     }
     refresh();
 }
@@ -797,6 +1143,24 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.productAssign) {
             assignProduct(data.productAssign);
         }
+        if (data.request) {
+            openRequest(parseInt(data.request, 10));
+        }
+        if (data.decide) {
+            decideRequest(parseInt(data.id, 10), data.decide);
+        }
+        if (data.notification) {
+            markNotification(parseInt(data.notification, 10));
+        }
+        if (data.dlq) {
+            openDlq(data.dlq);
+        }
+        if (data.dlqRedrive) {
+            actOnDlq(data.queue, data.dlqRedrive, "redrive");
+        }
+        if (data.dlqDiscard) {
+            actOnDlq(data.queue, data.dlqDiscard, "discard");
+        }
     });
     document.getElementById("warehouse-form").addEventListener("submit", saveWarehouse);
     document.getElementById("w-cancel").addEventListener("click", resetWarehouseForm);
@@ -806,13 +1170,21 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("c-cancel").addEventListener("click", resetProductForm);
     document.getElementById("c-search").addEventListener("input", loadCatalog);
     document.getElementById("catalog-refresh").addEventListener("click", loadCatalog);
+    document.getElementById("request-form").addEventListener("submit", createRequest);
+    document.getElementById("q-type").addEventListener("change", toggleRequestType);
+    document.getElementById("q-product").addEventListener("change", fillRequestFromProduct);
+    document.getElementById("r-filter").addEventListener("change", loadRequests);
+    document.getElementById("requests-refresh").addEventListener("click", loadRequests);
+    document.getElementById("n-unread").addEventListener("change", loadNotifications);
+    document.getElementById("notifications-read-all").addEventListener("click", markAllNotifications);
+    document.getElementById("dlq-refresh").addEventListener("click", loadDlq);
     document.getElementById("user-form").addEventListener("submit", createUser);
     document.getElementById("u-role").addEventListener("change", toggleWarehouseField);
     document.getElementById("users-refresh").addEventListener("click", loadUsers);
     document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
         b.closest(".modal").classList.remove("open");
     }));
-    // Etapa A: primero el login
+    // Primero el login
     startWithSession({
         loginUrl: SERVICES.identity + "/auth/login",
         changePasswordUrl: SERVICES.identity + "/auth/change-password",

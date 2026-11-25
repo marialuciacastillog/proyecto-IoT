@@ -3,7 +3,7 @@ from app.database import Base
 from app.modules.shared.utils import schemas_utils
 
 
-# Etapa B: avisos del catálogo que ya se aplicaron. Si SQS entrega el mismo aviso dos veces,
+# Avisos del catálogo que ya se aplicaron. Si SQS entrega el mismo aviso dos veces,
 # el segundo se ignora (idempotencia por event_id).
 class CatalogEventEntity(Base):
     __tablename__ = "catalog_events_applied"

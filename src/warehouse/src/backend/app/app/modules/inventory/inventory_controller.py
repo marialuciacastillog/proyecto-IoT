@@ -10,7 +10,7 @@ from app.modules.auth.roles import ADMIN_BODEGA, ENCARGADO, ALL_ROLES
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
 
-# Etapa A: los tipos que una persona puede registrar a mano. TRANSFER_IN, TRANSFER_OUT y
+# Los tipos que una persona puede registrar a mano. TRANSFER_IN, TRANSFER_OUT y
 # RESERVATION_CONFIRM solo los hace la saga de transferencias, nunca un usuario directo.
 manualTypes = ["RECEIPT", "SHIPMENT", "RETURN", "RESERVATION", "RELEASE"]
 

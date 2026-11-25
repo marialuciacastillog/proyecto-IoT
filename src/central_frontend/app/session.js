@@ -1,4 +1,4 @@
-// Etapa A: sesión del usuario. Este archivo es el MISMO en el front de bodega y en el de la central.
+// Sesión del usuario. Este archivo es el MISMO en el front de bodega y en el de la central.
 // - Muestra la pantalla de login si no hay sesión (o si se venció).
 // - Guarda el token en sessionStorage: se borra al cerrar la pestaña.
 // - authHeader() da el encabezado Authorization para cada llamada a la API.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Etapa A: la API pide token. Antes de correrlo:  export TOKEN=<token del Administrador Global>
+# La API pide token. Antes de correrlo:  export TOKEN=<token del Administrador Global>
 # Fase 2 - Experimento: hace muchas consultas iguales y mide cuánto tarda en promedio.
 # Uso: bash scripts/medir_cache.sh 8001 1 200
 #   8001 = puerto de la bodega, 1 = id del producto, 200 = número de consultas

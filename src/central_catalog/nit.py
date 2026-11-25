@@ -1,4 +1,4 @@
-# Etapa B: validación del NIT colombiano con su dígito de verificación (regla de la DIAN).
+# Validación del NIT colombiano con su dígito de verificación (regla de la DIAN).
 # Se multiplica cada dígito (de derecha a izquierda) por un peso, se suma todo y se saca el residuo
 # de dividir entre 11. Si el residuo es 0 o 1, ese es el dígito; si no, el dígito es 11 - residuo.
 import re

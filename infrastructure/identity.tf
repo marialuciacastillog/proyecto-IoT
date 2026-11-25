@@ -1,4 +1,4 @@
-# Etapa A - Llaves para firmar los tokens de inicio de sesión (RS256).
+# Llaves para firmar los tokens de inicio de sesión (RS256).
 # - La llave PRIVADA solo va a la central (servicio de identidad): es la única que puede crear tokens.
 # - La llave PÚBLICA va a todas las máquinas: con ella cada servicio comprueba que un token es auténtico.
 # Así una bodega revisa los tokens sola, sin preguntarle a la central (RNF-04), y si alguien

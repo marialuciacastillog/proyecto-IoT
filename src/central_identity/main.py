@@ -1,4 +1,4 @@
-# Etapa A: servicio de identidad (central, puerto 8008).
+# Servicio de identidad (central, puerto 8008).
 # - Guarda los usuarios con la contraseña cifrada (bcrypt): nunca se guarda la contraseña tal cual.
 # - POST /auth/login entrega un token firmado que dura TOKEN_HOURS horas.
 # - Solo el Administrador Global crea usuarios y les da sus credenciales.
@@ -26,7 +26,7 @@ maxFailedAttempts = 5
 lockMinutes = 5
 minPasswordLength = 8
 
-app = FastAPI(title="Identidad: usuarios, login y roles (Etapa A)")
+app = FastAPI(title="Identidad: usuarios, login y roles")
 
 createTablesSql = """
     CREATE TABLE IF NOT EXISTS users (
@@ -121,7 +121,7 @@ def validateRoleAndWarehouse(role, warehouseId):
         raise HTTPException(status_code=400, detail="El rol " + role + " no va asociado a una bodega")
 
 
-# Etapa B: la bodega debe estar registrada y activa en el catálogo (tabla warehouses de la central)
+# La bodega debe estar registrada y activa en el catálogo (tabla warehouses de la central)
 def checkWarehouseRegistered(cursor, warehouseId):
     if warehouseId:
         cursor.execute("SELECT to_regclass('public.warehouses') IS NOT NULL")

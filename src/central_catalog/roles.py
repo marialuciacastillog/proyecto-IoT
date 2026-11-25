@@ -1,4 +1,4 @@
-# Etapa A: los 4 roles del sistema. Este archivo se copia igual en cada servicio que revisa tokens
+# Los 4 roles del sistema. Este archivo se copia igual en cada servicio que revisa tokens
 # (identidad, bodegas, reportes y transferencias), para que todos usen los mismos nombres.
 
 ADMIN_GLOBAL = "ADMIN_GLOBAL"   # Administrador Global

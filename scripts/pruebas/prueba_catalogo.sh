@@ -1,9 +1,9 @@
 #!/bin/bash
 # Nota: los datos que se mandan con curl van sin tildes. En Git Bash de Windows curl recibe los textos
 # con la codificación de Windows (no UTF-8) y la API no puede leer el JSON. Desde el navegador no pasa.
-# Etapa B - Prueba de bodegas y catálogo global en AWS.
-# Uso (desde la carpeta del proyecto, después de bash scripts/etapaA/prueba_roles.sh):
-#   bash scripts/etapaB/prueba_catalogo.sh | tee evidencias/etapaB/prueba_catalogo.txt
+# Prueba de bodegas y catálogo global en AWS.
+# Uso (desde la carpeta del proyecto, después de bash scripts/pruebas/prueba_roles.sh):
+#   bash scripts/pruebas/prueba_catalogo.sh | tee evidencias/pruebas/prueba_catalogo.txt
 
 IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)

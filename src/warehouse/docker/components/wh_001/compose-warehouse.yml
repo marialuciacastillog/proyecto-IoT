@@ -31,7 +31,7 @@ services:
       - REDIS_URL=redis://wh_001_redis:6379/0
       - CACHE_TTL_SECONDS=30
       - CACHE_ENABLED=${CACHE_ENABLED:-true}
-      # Etapa A: llave pública para revisar los tokens (la bodega no puede fabricar tokens)
+      # Llave pública para revisar los tokens (la bodega no puede fabricar tokens)
       - JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem
     volumes:
       - ${JWT_KEYS_DIR:-/opt/proyecto/secrets}:/secrets:ro
@@ -74,9 +74,9 @@ services:
     environment:
       - API_TARGET=wh_001_lb:80
       - WAREHOUSE_ID=wh-001
-      # Etapa A: dónde está el servicio de identidad (IP elástica de la central, la pone Terraform)
+      # Dónde está el servicio de identidad (IP elástica de la central, la pone Terraform)
       - IDENTITY_TARGET=${CENTRAL_IP:-127.0.0.1}:8008
-      # Etapa B: catálogo global de la central
+      # Catálogo global de la central
       - CATALOG_TARGET=${CENTRAL_IP:-127.0.0.1}:8007
     # Mapeamos la ruta /api de forma transparente mediante Nginx para no requerir configuraciones cruzadas de puertos
     depends_on:
@@ -122,7 +122,7 @@ services:
     depends_on:
       wh_001_postgres_db:
         condition: service_healthy
-  # Etapa B: aplica los avisos del catálogo de la central (productos asignados y actualizados)
+  # Aplica los avisos del catálogo de la central (productos asignados y actualizados)
   wh_001_catalog_worker:
     build:
       context: ./src/backend/app

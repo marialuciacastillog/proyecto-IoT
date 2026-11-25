@@ -1,4 +1,4 @@
-# Etapa B: avisos del catálogo. El publicador del catálogo (central) publica en catalog-events
+# Avisos del catálogo. El publicador del catálogo (central) publica en catalog-events
 # y SNS entrega una copia a la cola de cada bodega (catalog-wh-00X), con su DLQ.
 # Para agregar una bodega nueva basta con agregar su id a la lista (sin tocar las demás).
 

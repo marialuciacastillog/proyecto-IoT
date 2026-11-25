@@ -1,4 +1,4 @@
-# Etapa A: revisión del token en cada petición. Este archivo se copia igual en cada servicio.
+# Revisión del token en cada petición. Este archivo se copia igual en cada servicio.
 # El token lo firma SOLO el servicio de identidad con su llave privada.
 # Los demás servicios solo tienen la llave pública: pueden comprobar que el token es auténtico,
 # pero no pueden fabricar uno. Así cada bodega revisa los tokens sola, sin preguntarle a la central.

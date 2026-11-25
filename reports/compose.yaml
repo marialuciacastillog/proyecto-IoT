@@ -23,7 +23,7 @@ services:
       AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
       AWS_CONFIG_FILE: /root/.aws/config
 
-      # Etapa A: llave pública para revisar los tokens
+      # Llave pública para revisar los tokens
       JWT_PUBLIC_KEY_PATH: /secrets/jwt_public.pem
 
     volumes:

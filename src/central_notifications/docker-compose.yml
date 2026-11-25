@@ -1,0 +1,41 @@
+# Notificaciones (puerto 8006) + vigilante de las DLQ.
+# Usa la base y la red de la central, así que se prende DESPUÉS de src/central_sync_worker.
+services:
+  notifications_api:
+    build: .
+    container_name: central_notifications_api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      - JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${JWT_KEYS_DIR:-/opt/proyecto/secrets}:/secrets:ro
+      - ${HOME}/.aws:/root/.aws:ro
+    ports:
+      - "8006:8000"
+    networks:
+      - iot-central-network
+
+  dlq_monitor:
+    build: .
+    container_name: central_dlq_monitor
+    restart: unless-stopped
+    command: python monitor.py
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@central_postgres_db:5432/central_db
+      - DLQ_CHECK_SECONDS=60
+      - AWS_PROFILE=lab1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+    networks:
+      - iot-central-network
+
+networks:
+  iot-central-network:
+    external: true
+    name: iot-central-network

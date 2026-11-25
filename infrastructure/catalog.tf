@@ -1,4 +1,4 @@
-# Etapa B - Catálogo: avisos de productos asignados y actualizados hacia cada bodega
+# Catálogo: avisos de productos asignados y actualizados hacia cada bodega
 module "catalog_events" {
   source        = "./modules/catalog_events"
   warehouse_ids = ["wh-001", "wh-002", "wh-003"]

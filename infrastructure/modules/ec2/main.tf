@@ -9,7 +9,7 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Etapa A: IP elástica (fija) para la central. Se crea ANTES que las máquinas, así las bodegas
+# IP elástica (fija) para la central. Se crea ANTES que las máquinas, así las bodegas
 # saben desde el arranque dónde está la central (login del front e ingesta IoT).
 # Además no cambia si la máquina se apaga y se vuelve a prender (por ejemplo, al acabar la sesión del lab).
 resource "aws_eip" "central" {

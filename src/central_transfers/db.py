@@ -3,6 +3,7 @@ import time
 import json
 import datetime
 import psycopg2
+from notify import createNotificationsSql, notify
 
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
 
@@ -22,7 +23,7 @@ createTablesSql = """
         created_at            TIMESTAMPTZ DEFAULT NOW(),
         updated_at            TIMESTAMPTZ DEFAULT NOW()
     );
-    -- Etapa A: quién pidió la transferencia y por qué (RF-23, RF-24)
+    -- Quién pidió la transferencia y por qué (RF-23, RF-24)
     ALTER TABLE transfers ADD COLUMN IF NOT EXISTS requested_by VARCHAR(50);
     ALTER TABLE transfers ADD COLUMN IF NOT EXISTS justification TEXT;
     CREATE TABLE IF NOT EXISTS transfer_history (
@@ -42,6 +43,7 @@ def connectDatabase():
             connection = psycopg2.connect(databaseUrl)
             with connection.cursor() as cursor:
                 cursor.execute(createTablesSql)
+                cursor.execute(createNotificationsSql)
             connection.commit()
         except Exception as error:
             print("Esperando la base de datos central:", error)
@@ -68,3 +70,18 @@ def changeStatus(cursor, transferId, newStatus, reason=""):
             "level": level, "event": "transfer_" + newStatus.lower(), "transfer_id": transferId,
             "correlation_id": transferId, "reason": reason}
     print(json.dumps(line, ensure_ascii=False), flush=True)
+    # Notificación (RF-16) cuando una transferencia no se pudo hacer: al Administrador Global
+    # y a los Administradores por Bodega de las dos bodegas
+    if newStatus in ("FAILED", "RESERVATION_RELEASED"):
+        cursor.execute("SELECT source_warehouse, destination_warehouse, product_id, quantity FROM transfers WHERE transfer_id = %s",
+                       (transferId,))
+        row = cursor.fetchone()
+        values = list(row.values()) if isinstance(row, dict) else list(row)
+        source, destination, productId, quantity = values[0], values[1], values[2], values[3]
+        title = "Transferencia " + transferId + (" fallida" if newStatus == "FAILED" else " compensada")
+        message = (source + " -> " + destination + ": " + productId + " x " + str(quantity) + ". " +
+                   ("No se pudo hacer" if newStatus == "FAILED" else "Se devolvió lo apartado en " + source) +
+                   (". Motivo: " + reason if reason else ""))
+        notify(cursor, "TRANSFERENCIA", "WARNING", title, message, "ADMIN_GLOBAL", None, transferId)
+        notify(cursor, "TRANSFERENCIA", "WARNING", title, message, "ADMIN_BODEGA", source, transferId)
+        notify(cursor, "TRANSFERENCIA", "WARNING", title, message, "ADMIN_BODEGA", destination, transferId)

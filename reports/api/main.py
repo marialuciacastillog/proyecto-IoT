@@ -13,7 +13,7 @@ from worker.queries import REPORT_TYPES, FORMATS
 from api.auth import requireRoles
 from api.roles import ADMIN_GLOBAL, LIDER
 
-# Etapa A: los reportes los ven el Administrador Global y el Líder (RF-17, RF-30)
+# Los reportes los ven el Administrador Global y el Líder (RF-17, RF-30)
 reportReaders = Depends(requireRoles(ADMIN_GLOBAL, LIDER))
 
 

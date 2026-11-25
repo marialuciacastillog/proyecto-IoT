@@ -1,8 +1,10 @@
-# Etapa B: catálogo de la central (puerto 8007).
+# Catálogo de la central (puerto 8007).
 # - Registro de bodegas con NIT, nombre, ubicación, identificador, descripción y encargado (RF-02).
 # - Borrado de bodegas cuidando su historia (RF-03): si tiene historia se archiva; si no, se borra.
 # - Catálogo global de productos con todos sus datos (RF-04). Solo el Administrador Global lo modifica.
 # - Cada Administrador por Bodega elige qué productos maneja su bodega (RF-08).
+# - El Administrador por Bodega pide productos nuevos o cambios (RF-05, RF-06) y el Administrador Global
+#   los aprueba o los rechaza (RF-07). Cada paso deja una notificación (RF-16).
 # Los cambios que deben llegar a las bodegas se guardan en catalog_outbox (misma transacción)
 # y el publicador los manda al tema SNS catalog-events. Así no se pierde ningún aviso.
 import json
@@ -16,13 +18,14 @@ from typing import Optional
 import psycopg2
 from psycopg2.extras import Json, RealDictCursor
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from auth import checkWarehouse, requireRoles
 from roles import ADMIN_BODEGA, ADMIN_GLOBAL, ALL_ROLES
 from nit import normalizeNit
+from notify import createNotificationsSql, notify
 
 databaseUrl = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5440/central_db")
-app = FastAPI(title="Catálogo: bodegas y productos (Etapa B)")
+app = FastAPI(title="Catálogo: bodegas y productos")
 
 createTablesSql = """
     CREATE TABLE IF NOT EXISTS warehouses (
@@ -63,6 +66,20 @@ createTablesSql = """
         assigned_by      VARCHAR(50),
         assigned_at      TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
         PRIMARY KEY (warehouse_id, product_code)
+    );
+    CREATE TABLE IF NOT EXISTS product_requests (
+        id             SERIAL PRIMARY KEY,
+        request_type   VARCHAR(20) NOT NULL,
+        warehouse_id   VARCHAR(20) NOT NULL,
+        product_code   VARCHAR(20) NOT NULL,
+        data           JSONB NOT NULL,
+        reason         TEXT NOT NULL,
+        status         VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+        requested_by   VARCHAR(50) NOT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+        decided_by     VARCHAR(50),
+        decided_at     TIMESTAMPTZ,
+        decision_note  TEXT
     );
     CREATE TABLE IF NOT EXISTS catalog_outbox (
         event_id     VARCHAR(40) PRIMARY KEY,
@@ -129,6 +146,17 @@ class ProductUpdate(BaseModel):
     sale_price: Optional[Decimal] = Field(None, ge=0)
     wholesale_price: Optional[Decimal] = Field(None, ge=0)
     initial_quantity: Optional[int] = Field(None, ge=0)
+
+
+class ProductRequest(BaseModel):
+    request_type: str                     # NEW_PRODUCT o UPDATE_PRODUCT
+    product_code: str
+    data: dict                            # NEW_PRODUCT: todos los datos del producto; UPDATE_PRODUCT: solo lo que cambia
+    reason: str = Field(..., min_length=5, max_length=500)
+
+
+class Decision(BaseModel):
+    note: str = Field("", max_length=500)
 
 
 class Assignment(BaseModel):
@@ -238,6 +266,7 @@ def startup():
     connection = connectDatabase()
     with connection.cursor() as cursor:
         cursor.execute(createTablesSql)
+        cursor.execute(createNotificationsSql)
         cursor.execute("SELECT COUNT(*) FROM warehouses")
         if cursor.fetchone()[0] == 0:
             for warehouseId, nit, name, location, description in seedWarehouses:
@@ -399,53 +428,78 @@ def readProduct(product_code: str, user=Depends(requireRoles(*ALL_ROLES))):
     return product
 
 
-@app.post("/products", status_code=201)
-def createProduct(request: ProductCreate, admin=Depends(requireRoles(ADMIN_GLOBAL))):
+# Crea el producto. La usan el endpoint del Administrador Global y la aprobación de una solicitud.
+def insertProduct(cursor, request, username):
     code = validateProductCode(request.product_code)
     validatePrices(request.sale_price, request.wholesale_price)
+    cursor.execute("SELECT 1 FROM products WHERE product_code = %s", (code,))
+    if cursor.fetchone() is not None:
+        raise HTTPException(status_code=409, detail="Ya existe un producto con ese código")
+    cursor.execute("INSERT INTO products (product_code, name, category, description, supplier, unit, cost, "
+                   "sale_price, wholesale_price, initial_quantity, created_by, updated_by) "
+                   "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING " + productColumns,
+                   (code, request.name, request.category, request.description, request.supplier,
+                    request.unit.upper(), request.cost, request.sale_price, request.wholesale_price,
+                    request.initial_quantity, username, username))
+    return cursor.fetchone()
+
+
+# Cambia el producto y deja el aviso PRODUCT_UPDATED para las bodegas que lo manejan
+def changeProduct(cursor, productCode, request, username):
+    changes = request.model_dump(exclude_none=True)
+    if "unit" in changes:
+        changes["unit"] = changes["unit"].upper()
+    if len(changes) == 0:
+        raise HTTPException(status_code=400, detail="No hay cambios")
+    current = getProduct(cursor, productCode)
+    validatePrices(changes.get("sale_price", current["sale_price"]), changes.get("wholesale_price", current["wholesale_price"]))
+    assignments = ", ".join(column + " = %s" for column in changes)
+    cursor.execute("UPDATE products SET " + assignments + ", updated_by = %s, updated_at = clock_timestamp() "
+                   "WHERE product_code = %s RETURNING " + productColumns,
+                   list(changes.values()) + [username, current["product_code"]])
+    product = cursor.fetchone()
+    addOutbox(cursor, "PRODUCT_UPDATED", {"product": productForEvent(product), "performedBy": username})
+    return product
+
+
+# Agrega el producto a la bodega y deja el aviso PRODUCT_ASSIGNED para esa bodega
+def addToWarehouse(cursor, warehouseId, product, initialQuantity, username):
+    cursor.execute("SELECT 1 FROM warehouse_products WHERE warehouse_id = %s AND product_code = %s",
+                   (warehouseId, product["product_code"]))
+    if cursor.fetchone() is not None:
+        raise HTTPException(status_code=409, detail="La bodega ya maneja ese producto")
+    cursor.execute("INSERT INTO warehouse_products (warehouse_id, product_code, initial_quantity, assigned_by) "
+                   "VALUES (%s, %s, %s, %s)", (warehouseId, product["product_code"], initialQuantity, username))
+    return addOutbox(cursor, "PRODUCT_ASSIGNED", {
+        "warehouseId": warehouseId, "product": productForEvent(product),
+        "initialQuantity": initialQuantity, "performedBy": username
+    })
+
+
+@app.post("/products", status_code=201)
+def createProduct(request: ProductCreate, admin=Depends(requireRoles(ADMIN_GLOBAL))):
     connection = connectDatabase()
     try:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT 1 FROM products WHERE product_code = %s", (code,))
-            if cursor.fetchone() is not None:
-                raise HTTPException(status_code=409, detail="Ya existe un producto con ese código")
-            cursor.execute("INSERT INTO products (product_code, name, category, description, supplier, unit, cost, "
-                           "sale_price, wholesale_price, initial_quantity, created_by, updated_by) "
-                           "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING " + productColumns,
-                           (code, request.name, request.category, request.description, request.supplier,
-                            request.unit.upper(), request.cost, request.sale_price, request.wholesale_price,
-                            request.initial_quantity, admin["username"], admin["username"]))
-            product = cursor.fetchone()
+            product = insertProduct(cursor, request, admin["username"])
         connection.commit()
     finally:
         connection.close()
-    logJson("INFO", "product_created", {"product_code": code, "by": admin["username"]})
+    logJson("INFO", "product_created", {"product_code": product["product_code"], "by": admin["username"]})
     return product
 
 
 # Si cambia un producto, el aviso PRODUCT_UPDATED llega a todas las bodegas que lo manejan
 @app.patch("/products/{product_code}")
 def updateProduct(product_code: str, request: ProductUpdate, admin=Depends(requireRoles(ADMIN_GLOBAL))):
-    changes = request.model_dump(exclude_none=True)
-    if "unit" in changes:
-        changes["unit"] = changes["unit"].upper()
-    if len(changes) == 0:
-        raise HTTPException(status_code=400, detail="No hay cambios")
     connection = connectDatabase()
     try:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            current = getProduct(cursor, product_code)
-            validatePrices(changes.get("sale_price", current["sale_price"]), changes.get("wholesale_price", current["wholesale_price"]))
-            assignments = ", ".join(column + " = %s" for column in changes)
-            cursor.execute("UPDATE products SET " + assignments + ", updated_by = %s, updated_at = clock_timestamp() "
-                           "WHERE product_code = %s RETURNING " + productColumns,
-                           list(changes.values()) + [admin["username"], current["product_code"]])
-            product = cursor.fetchone()
-            addOutbox(cursor, "PRODUCT_UPDATED", {"product": productForEvent(product), "performedBy": admin["username"]})
+            product = changeProduct(cursor, product_code, request, admin["username"])
         connection.commit()
     finally:
         connection.close()
-    logJson("INFO", "product_updated", {"product_code": product_code, "by": admin["username"], "fields": list(changes)})
+    logJson("INFO", "product_updated", {"product_code": product_code, "by": admin["username"]})
     return product
 
 
@@ -481,16 +535,7 @@ def assignProduct(warehouse_id: str, request: Assignment, user=Depends(requireRo
                 raise HTTPException(status_code=409, detail="La bodega está archivada")
             product = getProduct(cursor, request.product_code)
             initialQuantity = product["initial_quantity"] if request.initial_quantity is None else request.initial_quantity
-            cursor.execute("SELECT 1 FROM warehouse_products WHERE warehouse_id = %s AND product_code = %s",
-                           (warehouseId, product["product_code"]))
-            if cursor.fetchone() is not None:
-                raise HTTPException(status_code=409, detail="La bodega ya maneja ese producto")
-            cursor.execute("INSERT INTO warehouse_products (warehouse_id, product_code, initial_quantity, assigned_by) "
-                           "VALUES (%s, %s, %s, %s)", (warehouseId, product["product_code"], initialQuantity, user["username"]))
-            eventId = addOutbox(cursor, "PRODUCT_ASSIGNED", {
-                "warehouseId": warehouseId, "product": productForEvent(product),
-                "initialQuantity": initialQuantity, "performedBy": user["username"]
-            })
+            eventId = addToWarehouse(cursor, warehouseId, product, initialQuantity, user["username"])
         connection.commit()
     finally:
         connection.close()
@@ -499,3 +544,178 @@ def assignProduct(warehouse_id: str, request: Assignment, user=Depends(requireRo
     return {"warehouse_id": warehouseId, "product_code": product["product_code"], "initial_quantity": initialQuantity,
             "event_id": eventId, "status": "SENT_TO_WAREHOUSE",
             "message": "La bodega creará el producto en unos segundos"}
+
+
+# ---------------- Solicitudes de productos (RF-05, RF-06, RF-07) ----------------
+
+requestColumns = """id, request_type, warehouse_id, product_code, data, reason, status, requested_by, created_at,
+                    decided_by, decided_at, decision_note"""
+requestTypes = {"NEW_PRODUCT": "producto nuevo", "UPDATE_PRODUCT": "cambio de producto"}
+fieldNames = {"name": "nombre", "category": "categoría", "supplier": "proveedor", "unit": "unidad", "cost": "costo",
+              "sale_price": "precio de venta", "wholesale_price": "precio mayorista", "initial_quantity": "cantidad inicial",
+              "description": "descripción"}
+
+
+# Explica en español los errores de validación más comunes
+def explainError(item):
+    context = item.get("ctx", {})
+    messages = {
+        "missing": "es obligatorio",
+        "string_too_short": "debe tener al menos " + str(context.get("min_length", "")) + " caracteres",
+        "string_too_long": "puede tener máximo " + str(context.get("max_length", "")) + " caracteres",
+        "greater_than_equal": "debe ser mayor o igual a " + str(context.get("ge", "")),
+        "decimal_parsing": "debe ser un número",
+        "int_parsing": "debe ser un número entero",
+        "string_type": "debe ser un texto",
+    }
+    return messages.get(item["type"], "no es válido")
+
+
+def requestLabel(row):
+    return "SOL-" + str(row["id"]).zfill(4)
+
+
+# Revisa los datos de la solicitud con las mismas reglas que usa el Administrador Global al crear o editar
+def validateRequestData(requestType, productCode, data):
+    try:
+        if requestType == "NEW_PRODUCT":
+            validated = ProductCreate(product_code=productCode, **data)
+            validatePrices(validated.sale_price, validated.wholesale_price)
+        else:
+            validated = ProductUpdate(**data)
+            if len(validated.model_dump(exclude_none=True)) == 0:
+                raise HTTPException(status_code=400, detail="La solicitud de cambio no trae ningún cambio")
+    except HTTPException:
+        raise
+    except ValidationError as error:
+        problems = []
+        for item in error.errors():
+            field = str(item["loc"][-1]) if item["loc"] else "datos"
+            problems.append(fieldNames.get(field, field) + " " + explainError(item))
+        raise HTTPException(status_code=400, detail="Datos inválidos. " + "; ".join(problems))
+    return validated
+
+
+def getRequest(cursor, requestId):
+    cursor.execute("SELECT " + requestColumns + " FROM product_requests WHERE id = %s FOR UPDATE", (requestId,))
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    return row
+
+
+def withLabel(row):
+    row["label"] = requestLabel(row)
+    return row
+
+
+@app.post("/requests", status_code=201)
+def createRequest(request: ProductRequest, user=Depends(requireRoles(ADMIN_BODEGA))):
+    if request.request_type not in requestTypes:
+        raise HTTPException(status_code=400, detail="request_type debe ser NEW_PRODUCT o UPDATE_PRODUCT")
+    code = validateProductCode(request.product_code)
+    validated = validateRequestData(request.request_type, code, request.data)
+    warehouseId = user["warehouse_id"]
+    connection = connectDatabase()
+    try:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT 1 FROM products WHERE product_code = %s", (code,))
+            exists = cursor.fetchone() is not None
+            if request.request_type == "NEW_PRODUCT" and exists:
+                raise HTTPException(status_code=409, detail="Ese producto ya está en el catálogo: agrégalo a tu bodega desde el catálogo")
+            if request.request_type == "UPDATE_PRODUCT" and not exists:
+                raise HTTPException(status_code=404, detail="Producto no encontrado en el catálogo")
+            cursor.execute("SELECT id FROM product_requests WHERE product_code = %s AND status = 'PENDING' AND warehouse_id = %s",
+                           (code, warehouseId))
+            if cursor.fetchone() is not None:
+                raise HTTPException(status_code=409, detail="Ya tienes una solicitud pendiente para ese producto")
+            data = validated.model_dump(exclude_none=True, exclude={"product_code"})
+            cursor.execute("INSERT INTO product_requests (request_type, warehouse_id, product_code, data, reason, requested_by) "
+                           "VALUES (%s, %s, %s, %s, %s, %s) RETURNING " + requestColumns,
+                           (request.request_type, warehouseId, code, Json(data, dumps=lambda value: json.dumps(value, default=str)),
+                            request.reason, user["username"]))
+            row = withLabel(cursor.fetchone())
+            notify(cursor, "SOLICITUD", "INFO", "Nueva solicitud " + row["label"] + ": " + requestTypes[request.request_type] + " " + code,
+                   user["username"] + " (" + warehouseId + ") pide " + requestTypes[request.request_type] + " " + code +
+                   ". Motivo: " + request.reason, ADMIN_GLOBAL, None, row["label"])
+        connection.commit()
+    finally:
+        connection.close()
+    logJson("INFO", "request_created", {"request": row["label"], "type": request.request_type, "product_code": code,
+                                        "warehouse_id": warehouseId, "by": user["username"]})
+    return row
+
+
+@app.get("/requests")
+def listRequests(status: Optional[str] = None, user=Depends(requireRoles(ADMIN_GLOBAL, ADMIN_BODEGA))):
+    warehouseId = user["warehouse_id"] if user["role"] == ADMIN_BODEGA else None
+    connection = connectDatabase()
+    try:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT " + requestColumns + " FROM product_requests "
+                           "WHERE (%s IS NULL OR warehouse_id = %s) AND (%s IS NULL OR status = %s) "
+                           "ORDER BY (status = 'PENDING') DESC, created_at DESC LIMIT 200",
+                           (warehouseId, warehouseId, status, status.upper() if status else None))
+            rows = [withLabel(row) for row in cursor.fetchall()]
+    finally:
+        connection.close()
+    return rows
+
+
+# Aprobar: si es un producto nuevo, se crea en el catálogo y se agrega a la bodega que lo pidió
+# (con la cantidad inicial de la solicitud). Si es un cambio, se aplica y llega a todas las bodegas.
+@app.post("/requests/{request_id}/approve")
+def approveRequest(request_id: int, decision: Decision, admin=Depends(requireRoles(ADMIN_GLOBAL))):
+    connection = connectDatabase()
+    try:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            row = getRequest(cursor, request_id)
+            if row["status"] != "PENDING":
+                raise HTTPException(status_code=409, detail="La solicitud ya fue " + ("aprobada" if row["status"] == "APPROVED" else "rechazada"))
+            if row["request_type"] == "NEW_PRODUCT":
+                product = insertProduct(cursor, ProductCreate(product_code=row["product_code"], **row["data"]), admin["username"])
+                cursor.execute("SELECT status FROM warehouses WHERE warehouse_id = %s", (row["warehouse_id"],))
+                warehouse = cursor.fetchone()
+                if warehouse is not None and warehouse["status"] == "ACTIVE":
+                    addToWarehouse(cursor, row["warehouse_id"], product, product["initial_quantity"], row["requested_by"])
+                result = "El producto " + product["product_code"] + " se creó en el catálogo y se agregó a " + row["warehouse_id"]
+            else:
+                changeProduct(cursor, row["product_code"], ProductUpdate(**row["data"]), admin["username"])
+                result = "El cambio de " + row["product_code"] + " se aplicó y llega a las bodegas que lo manejan"
+            cursor.execute("UPDATE product_requests SET status = 'APPROVED', decided_by = %s, decided_at = clock_timestamp(), "
+                           "decision_note = %s WHERE id = %s RETURNING " + requestColumns,
+                           (admin["username"], decision.note, request_id))
+            row = withLabel(cursor.fetchone())
+            notify(cursor, "SOLICITUD", "INFO", "Solicitud " + row["label"] + " aprobada",
+                   result + "." + (" Nota: " + decision.note if decision.note else ""),
+                   ADMIN_BODEGA, row["warehouse_id"], row["label"])
+        connection.commit()
+    finally:
+        connection.close()
+    logJson("INFO", "request_approved", {"request": row["label"], "by": admin["username"]})
+    row["message"] = result
+    return row
+
+
+@app.post("/requests/{request_id}/reject")
+def rejectRequest(request_id: int, decision: Decision, admin=Depends(requireRoles(ADMIN_GLOBAL))):
+    if len(decision.note.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Para rechazar escribe el motivo (mínimo 5 caracteres)")
+    connection = connectDatabase()
+    try:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            row = getRequest(cursor, request_id)
+            if row["status"] != "PENDING":
+                raise HTTPException(status_code=409, detail="La solicitud ya fue " + ("aprobada" if row["status"] == "APPROVED" else "rechazada"))
+            cursor.execute("UPDATE product_requests SET status = 'REJECTED', decided_by = %s, decided_at = clock_timestamp(), "
+                           "decision_note = %s WHERE id = %s RETURNING " + requestColumns,
+                           (admin["username"], decision.note.strip(), request_id))
+            row = withLabel(cursor.fetchone())
+            notify(cursor, "SOLICITUD", "WARNING", "Solicitud " + row["label"] + " rechazada",
+                   "Tu solicitud de " + requestTypes[row["request_type"]] + " " + row["product_code"] +
+                   " fue rechazada. Motivo: " + decision.note.strip(), ADMIN_BODEGA, row["warehouse_id"], row["label"])
+        connection.commit()
+    finally:
+        connection.close()
+    logJson("INFO", "request_rejected", {"request": row["label"], "by": admin["username"]})
+    return row

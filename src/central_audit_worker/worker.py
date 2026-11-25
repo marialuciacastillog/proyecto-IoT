@@ -34,7 +34,7 @@ createAuditSql = """
         created_at     TIMESTAMP,
         received_at    TIMESTAMP DEFAULT clock_timestamp()
     );
-    -- Etapa A: usuario que hizo el movimiento (RF-28)
+    -- Usuario que hizo el movimiento (RF-28)
     ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS performed_by VARCHAR(80)
 """
 

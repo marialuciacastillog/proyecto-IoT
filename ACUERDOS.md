@@ -50,8 +50,8 @@
 - Central: src/central_frontend (puerto 8080). Se prende después de src/central_sync_worker (usa iot-central-network).
   Nginx reenvía /svc/reports/ -> iot-reports-api, /svc/transfers/ -> central_transfers_api y /svc/iot/ -> iot_ingestion.
   Vistas: Resumen, Inventario global (Read Model), Transferencias (saga) y Reportes (S3).
-- Login (Etapa A): los dos fronts usan session.js (mismo archivo). Cada elemento con data-roles="ROL1,ROL2" solo se ve para esos roles.
-## Etapa A - Usuarios, login y roles
+- Login: los dos fronts usan session.js (mismo archivo). Cada elemento con data-roles="ROL1,ROL2" solo se ve para esos roles.
+## Usuarios, login y roles
 
 - Servicio de identidad en la central, puerto **8008**.
 - Login: `POST /auth/login` con `{"username": "...", "password": "..."}` -> devuelve `access_token` (dura 2 horas).
@@ -63,7 +63,7 @@
 - El primer admin es `admin`; su contraseña inicial está en la central, en `/opt/proyecto/secrets/admin_password.txt` (solo con sudo).
 - Los movimientos guardan `created_by` y el evento de sincronización lleva `performedBy`. Las transferencias guardan `requested_by` y `justification`.
 
-## Etapa B - Bodegas y catálogo global
+## Bodegas y catálogo global
 
 - Servicio de catálogo en la central, puerto **8007** (`src/central_catalog`). El front central lo usa por `/svc/catalog/` y el de bodega por `/catalog/`.
 - Bodegas (RF-02): `GET/POST /warehouses`, `GET/PATCH/DELETE /warehouses/{id}`. Campos: `warehouse_id` (wh-004), `nit` (con dígito de verificación DIAN), `name`, `location`, `description`, `manager_name`, `manager_username`.
@@ -77,3 +77,21 @@
   El worker de la bodega crea el producto y registra la cantidad inicial como un RECEIPT a nombre de quien la pidió.
 - Avisos: `PRODUCT_ASSIGNED` (para una bodega) y `PRODUCT_UPDATED` (cambio en el catálogo, llega a todas las bodegas que tienen el producto). Son idempotentes por `eventId`.
 - La bodega ya no crea productos sueltos (se quitó `POST /products` de la API de bodega).
+
+## Solicitudes, notificaciones y DLQ
+
+- Solicitudes (RF-05, RF-06, RF-07), en el catálogo (puerto 8007):
+  - `POST /requests` (Admin por Bodega) con `{"request_type": "NEW_PRODUCT" | "UPDATE_PRODUCT", "product_code", "data", "reason"}`.
+    NEW_PRODUCT lleva todos los datos del producto; UPDATE_PRODUCT solo lo que cambia. Se valida con las mismas reglas del catálogo.
+  - `GET /requests?status=PENDING` (Admin Global ve todas; Admin por Bodega solo las de su bodega).
+  - `POST /requests/{id}/approve` y `POST /requests/{id}/reject` con `{"note"}` (solo Admin Global; rechazar exige motivo).
+    Aprobar un producto nuevo lo crea en el catálogo y lo agrega a la bodega que lo pidió. Aprobar un cambio llega a todas las bodegas que lo manejan.
+- Notificaciones (RF-16), servicio en la central, puerto **8006** (`src/central_notifications`), front central por `/svc/notifications/`:
+  - `GET /notifications?unread_only=true`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all`.
+  - Cada notificación va para un rol y, si es de una bodega, solo para esa bodega. Categorías: SOLICITUD, TRANSFERENCIA, DLQ, ALERTA.
+  - Las crean: el catálogo (solicitud nueva -> Admin Global; aprobada o rechazada -> Admin por Bodega), el orquestador
+    (transferencia FAILED o RESERVATION_RELEASED -> Admin Global y las dos bodegas) y el vigilante de DLQ (mensajes nuevos -> Admin Global).
+  - El código para crear notificaciones está en `notify.py` (mismo archivo en catálogo, transferencias y notificaciones).
+- DLQ (solo Admin Global): `GET /dlq`, `GET /dlq/{cola}/messages`, `POST /dlq/{cola}/messages/{id}/redrive` y `.../discard` con `{"justification"}`.
+  Reprocesar devuelve el mensaje a la cola original (nombre sin `-dlq`); es seguro porque los workers son idempotentes.
+  Descartar exige justificación. Cada acción queda en `dlq_actions` con quién la hizo.

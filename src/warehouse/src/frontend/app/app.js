@@ -1,7 +1,7 @@
 // Front de una bodega. La misma imagen corre en wh-001, wh-002 y wh-003:
 // Nginx manda /api/... al balanceador de ESTA bodega, así que cada front solo ve su propia bodega.
 const API = "/api";
-const CATALOG = "/catalog";  // Etapa B: catálogo global de la central (Nginx lo reenvía a la IP elástica)
+const CATALOG = "/catalog";  // Catálogo global de la central (Nginx lo reenvía a la IP elástica)
 const LOW_STOCK = 10;  // mismo umbral que el reporte low_stock de la central
 
 // config.js lo genera Nginx con la variable WAREHOUSE_ID del contenedor
@@ -12,7 +12,7 @@ const state = {
     products: [],
     stock: {},       // id del producto -> { quantity, reserved_quantity }
     movements: [],   // todos los movimientos de la bodega
-    catalog: []      // Etapa B: productos del catálogo global
+    catalog: []      // Productos del catálogo global
 };
 
 
@@ -42,7 +42,7 @@ function toast(message, type) {
 }
 
 // fetch con manejo de errores: devuelve el JSON o lanza un Error con el detalle de FastAPI.
-// Etapa A: cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
+// Cada llamada lleva el token (authHeader, de session.js). Si la API responde 401, se vuelve al login.
 async function api(path, options) {
     const request = Object.assign({}, options);
     request.headers = Object.assign({}, request.headers, authHeader());
@@ -62,7 +62,7 @@ async function api(path, options) {
     return { data: data, headers: response.headers };
 }
 
-// Etapa B: lo mismo que api() pero contra el catálogo de la central
+// Lo mismo que api() pero contra el catálogo de la central
 async function catalogApi(path, options) {
     const request = Object.assign({}, options);
     request.headers = Object.assign({}, request.headers, authHeader());
@@ -187,7 +187,7 @@ function refresh() {
 }
 
 
-// ---------- Etapa A: entrada después del login ----------
+// ---------- Entrada después del login ----------
 
 // Un Admin por Bodega o un Encargado de OTRA bodega no puede usar este front
 function startApp(session) {
@@ -348,7 +348,7 @@ function openProductHistory(productId) {
 
 // ---------- Formularios ----------
 
-// ---------- Etapa B: agregar productos del catálogo ----------
+// ---------- Agregar productos del catálogo ----------
 
 async function loadCatalog() {
     try {
@@ -479,7 +479,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
         b.closest(".modal").classList.remove("open");
     }));
-    // Etapa A: primero el login. El login lo atiende la central (Nginx reenvía /identity/ al puerto 8008)
+    // Primero el login. El login lo atiende la central (Nginx reenvía /identity/ al puerto 8008)
     startWithSession({
         loginUrl: "/identity/auth/login",
         changePasswordUrl: "/identity/auth/change-password",

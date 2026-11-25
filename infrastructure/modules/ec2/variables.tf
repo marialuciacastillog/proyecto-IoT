@@ -46,10 +46,10 @@ variable "audit_queue_url" {
 variable "jwt_private_key_pem" {
   type        = string
   sensitive   = true
-  description = "Llave privada para firmar tokens (solo la usa la central) - Etapa A"
+  description = "Llave privada para firmar tokens (solo la usa la central)"
 }
 
 variable "jwt_public_key_pem" {
   type        = string
-  description = "Llave pública para revisar tokens (la usan todas las máquinas) - Etapa A"
+  description = "Llave pública para revisar tokens (la usan todas las máquinas)"
 }

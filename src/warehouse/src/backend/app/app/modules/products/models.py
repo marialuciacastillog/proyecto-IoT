@@ -12,7 +12,7 @@ class ProductEntity(Base):
     description = Column(String)
     category = Column(String)
     unit = Column(String)
-    # Etapa B: datos que vienen del catálogo global de la central (RF-04)
+    # Datos que vienen del catálogo global de la central (RF-04)
     supplier = Column(String)
     cost = Column(Numeric(14, 2))
     sale_price = Column(Numeric(14, 2))

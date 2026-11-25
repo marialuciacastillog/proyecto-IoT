@@ -166,7 +166,7 @@ td strong { white-space: nowrap; }
     .content { padding: 1rem; }
 }
 
-/* Etapa A: login, usuario en la barra lateral y elementos por rol */
+/* Login, usuario en la barra lateral y elementos por rol */
 .role-hidden { display: none !important; }
 .login-screen { position: fixed; inset: 0; background: var(--sidebar); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 200; }
 .login-screen.hidden { display: none; }
@@ -180,3 +180,8 @@ td strong { white-space: nowrap; }
 .link-light { background: none; border: none; color: var(--sidebar-text); text-decoration: underline; cursor: pointer; padding: 0; font: inherit; margin-right: 0.75rem; }
 .notice { background: var(--warn-soft); color: var(--warn); padding: 1rem 1.25rem; border-radius: var(--radius); margin-bottom: 1.25rem; }
 .check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: var(--muted); }
+.count { background: var(--error); color: #fff; border-radius: 999px; padding: 0 0.45rem; font-size: 0.75rem; margin-left: 0.3rem; }
+.unread td { font-weight: 600; }
+pre.body { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow-y: auto; }
+.dlq-message { border-bottom: 1px solid var(--border); padding: 0.75rem 0; }
+.changes td:first-child { color: var(--muted); }

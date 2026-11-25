@@ -18,7 +18,10 @@
             <button data-view="bodegas" data-roles="ADMIN_GLOBAL,LIDER">Bodegas</button>
             <button data-view="catalogo">Catálogo</button>
             <button data-view="transferencias">Transferencias</button>
+            <button data-view="solicitudes" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">Solicitudes</button>
+            <button data-view="notificaciones" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">Notificaciones <span class="count role-hidden" id="unread-count"></span></button>
             <button data-view="reportes" data-roles="ADMIN_GLOBAL,LIDER">Reportes</button>
+            <button data-view="dlq" data-roles="ADMIN_GLOBAL">DLQ</button>
             <button data-view="usuarios" data-roles="ADMIN_GLOBAL">Usuarios</button>
         </nav>
         <div class="sidebar-footer">
@@ -27,6 +30,7 @@
             <div id="status-iot" class="status-dot">Ingesta IoT</div>
             <div id="status-identity" class="status-dot">Identidad</div>
             <div id="status-catalog" class="status-dot">Catálogo</div>
+            <div id="status-notifications" class="status-dot">Notificaciones</div>
         </div>
     </aside>
 
@@ -188,7 +192,7 @@
             </div>
         </section>
 
-        <!-- BODEGAS (Etapa B): el Administrador Global las registra; el Líder las consulta -->
+        <!-- BODEGAS: el Administrador Global las registra; el Líder las consulta -->
         <section class="view" id="view-bodegas">
             <div class="page-header">
                 <div>
@@ -234,7 +238,7 @@
             </div>
         </section>
 
-        <!-- CATÁLOGO (Etapa B): todos lo ven; el Administrador Global lo modifica; el Admin por Bodega elige productos -->
+        <!-- CATÁLOGO: todos lo ven; el Administrador Global lo modifica; el Admin por Bodega elige productos -->
         <section class="view" id="view-catalogo">
             <div class="page-header">
                 <div>
@@ -285,7 +289,119 @@
             </div>
         </section>
 
-        <!-- USUARIOS (Etapa A): solo el Administrador Global -->
+        <!-- SOLICITUDES: el Admin por Bodega pide productos nuevos o cambios; el Admin Global decide -->
+        <section class="view" id="view-solicitudes">
+            <div class="page-header">
+                <div>
+                    <h1>Solicitudes de productos</h1>
+                    <p>El Administrador por Bodega pide productos nuevos o cambios; el Administrador Global los aprueba o los rechaza.</p>
+                </div>
+                <div class="toolbar">
+                    <select id="r-filter">
+                        <option value="">Todas</option>
+                        <option value="PENDING">Pendientes</option>
+                        <option value="APPROVED">Aprobadas</option>
+                        <option value="REJECTED">Rechazadas</option>
+                    </select>
+                    <button class="btn btn-light" id="requests-refresh">Actualizar</button>
+                </div>
+            </div>
+            <div class="card" data-roles="ADMIN_BODEGA">
+                <h2>Nueva solicitud</h2>
+                <form id="request-form">
+                    <div class="form-row">
+                        <div class="field">
+                            <label for="q-type">Qué pides</label>
+                            <select id="q-type">
+                                <option value="NEW_PRODUCT">Un producto nuevo para el catálogo</option>
+                                <option value="UPDATE_PRODUCT">Un cambio en un producto del catálogo</option>
+                            </select>
+                        </div>
+                        <div class="field" id="q-code-field"><label for="q-code">Código del producto nuevo</label><input id="q-code" placeholder="P-010"></div>
+                        <div class="field role-hidden" id="q-product-field"><label for="q-product">Producto a cambiar</label><select id="q-product"></select></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="q-name">Nombre</label><input id="q-name"></div>
+                        <div class="field"><label for="q-category">Categoría</label><input id="q-category"></div>
+                        <div class="field"><label for="q-supplier">Proveedor</label><input id="q-supplier"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="q-cost">Costo</label><input id="q-cost" type="number" min="0" step="0.01"></div>
+                        <div class="field"><label for="q-price">Precio de venta</label><input id="q-price" type="number" min="0" step="0.01"></div>
+                        <div class="field"><label for="q-wholesale">Precio mayorista</label><input id="q-wholesale" type="number" min="0" step="0.01"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="q-unit">Unidad</label><input id="q-unit" value="UNIDADES"></div>
+                        <div class="field"><label for="q-initial">Cantidad inicial para tu bodega</label><input id="q-initial" type="number" min="0" value="0"></div>
+                    </div>
+                    <div class="field"><label for="q-description">Descripción</label><textarea id="q-description" placeholder="Opcional"></textarea></div>
+                    <div class="field"><label for="q-reason">Por qué lo necesitas</label><textarea id="q-reason" required minlength="5" placeholder="Por ejemplo: los clientes de la zona lo piden cada semana"></textarea></div>
+                    <p class="sub" id="q-hint">Si se aprueba, el producto se crea en el catálogo y se agrega a tu bodega con la cantidad inicial.</p>
+                    <button class="btn btn-primary mt" type="submit">Enviar solicitud</button>
+                </form>
+            </div>
+            <div class="card mt">
+                <h2>Solicitudes</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Solicitud</th><th>Tipo</th><th>Producto</th><th>Bodega</th><th>Pedida por</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+                        <tbody id="requests-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- NOTIFICACIONES: las del rol del usuario (y de su bodega) -->
+        <section class="view" id="view-notificaciones">
+            <div class="page-header">
+                <div>
+                    <h1>Notificaciones</h1>
+                    <p>Solicitudes, transferencias que fallaron y mensajes en las DLQ.</p>
+                </div>
+                <div class="toolbar">
+                    <label class="check"><input type="checkbox" id="n-unread"> Solo sin leer</label>
+                    <button class="btn btn-light" id="notifications-read-all">Marcar todas como leídas</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Fecha</th><th>Tipo</th><th>Notificación</th><th></th></tr></thead>
+                        <tbody id="notifications-body"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- DLQ: el Administrador Global atiende los mensajes que fallaron -->
+        <section class="view" id="view-dlq">
+            <div class="page-header">
+                <div>
+                    <h1>Mensajes fallidos (DLQ)</h1>
+                    <p>Reprocesar devuelve el mensaje a su cola (es seguro: los workers ignoran lo que ya aplicaron). Descartar pide el motivo y queda registrado.</p>
+                </div>
+                <button class="btn btn-light" id="dlq-refresh">Actualizar</button>
+            </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>DLQ</th><th>Cola original</th><th class="num">Mensajes</th><th></th></tr></thead>
+                        <tbody id="dlq-body"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mt">
+                <h2>Acciones registradas</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Fecha</th><th>DLQ</th><th>Acción</th><th>Justificación</th><th>Quién</th></tr></thead>
+                        <tbody id="dlq-actions-body"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- USUARIOS: solo el Administrador Global -->
         <section class="view" id="view-usuarios">
             <div class="page-header">
                 <div>
@@ -354,6 +470,16 @@
                 <button class="btn btn-light" data-close>Cerrar</button>
             </div>
             <div id="transfer-modal-body"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="detail-modal">
+        <div class="modal-box">
+            <div class="card-header">
+                <h2 id="detail-title">Detalle</h2>
+                <button class="btn btn-light" data-close>Cerrar</button>
+            </div>
+            <div id="detail-body"></div>
         </div>
     </div>
 

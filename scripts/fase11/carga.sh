@@ -14,7 +14,7 @@ DURACION=${DURACION:-15s}
 IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
 W2=$(echo $IPS | grep -o '"wh-002":"[^"]*"' | cut -d'"' -f4)
-# Etapa A: la API pide token. Se usa el del Administrador Global.
+# La API pide token. Se usa el del Administrador Global.
 TOKEN=$(bash scripts/token.sh)
 AUTH="Authorization: Bearer $TOKEN"
 OUT=evidencias/fase11/carga

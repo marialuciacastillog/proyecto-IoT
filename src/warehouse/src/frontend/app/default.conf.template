@@ -24,7 +24,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # Etapa A: el login lo hace el servicio de identidad de la central (IP elástica, puerto 8008).
+    # El login lo hace el servicio de identidad de la central (IP elástica, puerto 8008).
     # Se pasa por aquí para que el navegador hable con un solo sitio (el front de la bodega).
     location /identity/ {
         proxy_pass http://${IDENTITY_TARGET}/;
@@ -33,7 +33,7 @@ server {
         proxy_connect_timeout 5s;
     }
 
-    # Etapa B: catálogo global de la central (IP elástica, puerto 8007). Desde aquí el Administrador
+    # Catálogo global de la central (IP elástica, puerto 8007). Desde aquí el Administrador
     # por Bodega ve el catálogo y elige qué productos maneja su bodega.
     location /catalog/ {
         proxy_pass http://${CATALOG_TARGET}/;

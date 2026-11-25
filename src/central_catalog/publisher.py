@@ -1,4 +1,4 @@
-# Etapa B: publicador del catálogo. Cada 2 segundos manda a SNS (catalog-events) los avisos guardados
+# Publicador del catálogo. Cada 2 segundos manda a SNS (catalog-events) los avisos guardados
 # en catalog_outbox y los marca como publicados. Si SNS falla, el aviso queda y se reintenta.
 import json
 import os

@@ -22,10 +22,10 @@ CONFIG
 git clone ${repo_url} /opt/proyecto
 export SYNC_QUEUE_URL="${sync_queue_url}"
 export SYNC_TOPIC_ARN="${sync_topic_arn}"
-# Etapa A: IP elástica de la central (login de los fronts de bodega e ingesta IoT)
+# IP elástica de la central (login de los fronts de bodega e ingesta IoT)
 export CENTRAL_IP="${central_ip}"
 
-# 3.1 Etapa A: llaves de los tokens. Todas las máquinas tienen la pública; solo la central la privada.
+# 3.1 Llaves de los tokens. Todas las máquinas tienen la pública; solo la central la privada.
 mkdir -p /opt/proyecto/secrets
 cat > /opt/proyecto/secrets/jwt_public.pem <<'PUBLICKEY'
 ${jwt_public_key_pem}
@@ -53,12 +53,16 @@ export AUDIT_QUEUE_URL="${audit_queue_url}"
 cd /opt/proyecto/src/central_audit_worker
 docker compose up -d --build
 
-# 4.1c Etapa A: servicio de identidad (usuarios, login y roles) en el puerto 8008
+# 4.1c Servicio de identidad (usuarios, login y roles) en el puerto 8008
 cd /opt/proyecto/src/central_identity
 docker compose up -d --build
 
-# 4.1d Etapa B: catálogo (bodegas y productos) en el puerto 8007 + publicador de avisos
+# 4.1d Catálogo (bodegas y productos) en el puerto 8007 + publicador de avisos
 cd /opt/proyecto/src/central_catalog
+docker compose up -d --build
+
+# 4.1e Notificaciones (puerto 8006) + vigilante de las DLQ
+cd /opt/proyecto/src/central_notifications
 docker compose up -d --build
 
 # 4.2 Después los reportes, que usan la red de la central

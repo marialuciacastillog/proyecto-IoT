@@ -1,4 +1,4 @@
-# Etapa B: catálogo (bodegas y productos) en el puerto 8007 + publicador de avisos a las bodegas.
+# Catálogo (bodegas y productos) en el puerto 8007 + publicador de avisos a las bodegas.
 # Usa la base y la red de la central, así que se prende DESPUÉS de src/central_sync_worker.
 services:
   catalog_api:

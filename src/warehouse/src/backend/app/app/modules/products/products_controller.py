@@ -11,7 +11,7 @@ from app.modules.auth.roles import ALL_ROLES
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-# Etapa B: los productos ya no se crean aquí. Los crea el Administrador Global en el catálogo de la
+# Los productos ya no se crean aquí. Los crea el Administrador Global en el catálogo de la
 # central (RF-04) y el Administrador por Bodega elige cuáles maneja su bodega (RF-08). La bodega los
 # recibe por el aviso PRODUCT_ASSIGNED (ver app/modules/catalog/worker.py).
 

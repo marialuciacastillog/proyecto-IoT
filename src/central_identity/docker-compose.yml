@@ -1,4 +1,4 @@
-# Etapa A: servicio de identidad (usuarios, login y roles). Puerto 8008.
+# Servicio de identidad (usuarios, login y roles). Puerto 8008.
 # Usa la base y la red de la central, así que se prende DESPUÉS de src/central_sync_worker.
 # Las llaves del token están en /opt/proyecto/secrets (las crea Terraform al prender la máquina).
 services:

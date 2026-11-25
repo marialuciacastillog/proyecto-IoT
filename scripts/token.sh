@@ -1,5 +1,5 @@
 #!/bin/bash
-# Etapa A - Saca un token de inicio de sesión desde el servicio de identidad (central, puerto 8008).
+# Saca un token de inicio de sesión desde el servicio de identidad (central, puerto 8008).
 # Uso (desde la carpeta del proyecto):
 #   TOKEN=$(bash scripts/token.sh)                      -> token del admin (lee su contraseña de la central)
 #   TOKEN=$(bash scripts/token.sh usuario contraseña)   -> token de otro usuario

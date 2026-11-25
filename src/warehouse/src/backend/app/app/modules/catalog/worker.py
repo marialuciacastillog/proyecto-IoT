@@ -1,4 +1,4 @@
-# Etapa B - Worker del catálogo de esta bodega.
+# Worker del catálogo de esta bodega.
 # Lee su cola (catalog-wh-00X), que recibe por SNS los avisos del catálogo de la central:
 #   PRODUCT_ASSIGNED -> el Administrador por Bodega eligió un producto para ESTA bodega:
 #                       se crea el producto con su inventario y la cantidad inicial entra como RECEIPT.
