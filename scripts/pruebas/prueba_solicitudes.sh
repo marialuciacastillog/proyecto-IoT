@@ -9,7 +9,8 @@ IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
 W1=$(echo $IPS | grep -o '"wh-001":"[^"]*"' | cut -d'"' -f4)
 SQ=$(terraform -chdir=infrastructure output -raw sync_queue_url)
-ID=$C:8008; CAT=$C:8007; WH=$W1:8001; NOT=$C:8006; TR=$C:8010
+# Direcciones por HTTPS y curl revisando los certificados con la CA del proyecto
+. scripts/https.sh
 ADMIN=$(bash scripts/token.sh)
 
 # Dos mensajes para la DLQ: uno roto (el worker lo manda directo a la DLQ) y uno valido que "fallo antes"

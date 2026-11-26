@@ -35,6 +35,8 @@ services:
       - MQTT_HOST=mqtt_broker
       - IOT_WAREHOUSES=${IOT_WAREHOUSES:-WH-001}
       - INGEST_URL=${INGEST_URL:-}
+      # Python confía en la CA del proyecto para revisar el certificado HTTPS de la central
+      - SSL_CERT_FILE=/tls/ca.crt
       - BUFFER_PATH=/data/buffer.db
       - AWS_PROFILE=lab1
       - AWS_DEFAULT_REGION=us-east-1
@@ -42,6 +44,7 @@ services:
     volumes:
       - iot_gateway_buffer:/data
       - ${HOME}/.aws:/root/.aws:ro
+      - ${TLS_DIR:-/opt/proyecto/secrets/tls}:/tls:ro
     depends_on:
       - mqtt_broker
 

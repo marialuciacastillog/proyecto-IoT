@@ -6,4 +6,4 @@ COPY ./app.js /usr/share/nginx/html/app.js
 COPY ./session.js /usr/share/nginx/html/session.js
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 80 443

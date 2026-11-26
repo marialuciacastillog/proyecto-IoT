@@ -1,6 +1,20 @@
+# RNF-03: el front de la bodega se sirve por HTTPS (443). El puerto HTTP solo redirige.
 server {
     listen 80;
-    server_name localhost;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name _;
+
+    # Certificado de esta bodega firmado por la CA del proyecto (lo escribe el user_data en secrets/tls)
+    ssl_certificate     /etc/nginx/tls/server.crt;
+    ssl_certificate_key /etc/nginx/tls/server.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:5m;
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     location / {
         root /usr/share/nginx/html;
@@ -24,19 +38,28 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # El login lo hace el servicio de identidad de la central (IP elástica, puerto 8008).
-    # Se pasa por aquí para que el navegador hable con un solo sitio (el front de la bodega).
+    # El login y el catálogo los atiende la central. Se va por HTTPS a su puerta de entrada (443)
+    # y se REVISA su certificado con la CA del proyecto: si alguien se hace pasar por la central, no conecta.
+    # Se revisa por el nombre interno (central.proyecto-iot.internal), que va en el certificado.
     location /identity/ {
-        proxy_pass http://${IDENTITY_TARGET}/;
+        proxy_pass https://${CENTRAL_HOST}/svc/identity/;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/nginx/tls/ca.crt;
+        proxy_ssl_name central.proyecto-iot.internal;
+        proxy_ssl_server_name on;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_connect_timeout 5s;
     }
 
-    # Catálogo global de la central (IP elástica, puerto 8007). Desde aquí el Administrador
-    # por Bodega ve el catálogo y elige qué productos maneja su bodega.
+    # Catálogo global de la central. Desde aquí el Administrador por Bodega ve el catálogo
+    # y elige qué productos maneja su bodega.
     location /catalog/ {
-        proxy_pass http://${CATALOG_TARGET}/;
+        proxy_pass https://${CENTRAL_HOST}/svc/catalog/;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/nginx/tls/ca.crt;
+        proxy_ssl_name central.proyecto-iot.internal;
+        proxy_ssl_server_name on;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_connect_timeout 5s;

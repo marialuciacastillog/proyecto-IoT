@@ -42,6 +42,21 @@ export ADMIN_INITIAL_PASSWORD="$(cat /opt/proyecto/secrets/admin_password.txt)"
 %{ endif ~}
 chmod 644 /opt/proyecto/secrets/jwt_public.pem
 
+# 3.2 HTTPS (RNF-03): el certificado de esta máquina (firmado por la CA del proyecto) y la CA,
+# para confiar en los certificados de las otras máquinas
+mkdir -p /opt/proyecto/secrets/tls
+cat > /opt/proyecto/secrets/tls/server.crt <<'SERVERCERT'
+${tls_cert_pem}
+SERVERCERT
+cat > /opt/proyecto/secrets/tls/server.key <<'SERVERKEY'
+${tls_key_pem}
+SERVERKEY
+cat > /opt/proyecto/secrets/tls/ca.crt <<'CACERT'
+${tls_ca_pem}
+CACERT
+chmod 600 /opt/proyecto/secrets/tls/server.key
+chmod 644 /opt/proyecto/secrets/tls/server.crt /opt/proyecto/secrets/tls/ca.crt
+
 # 4. Levantar lo que le toca a esta máquina
 %{ if role == "central" ~}
 # 4.1 Primero la central (base de datos + worker): crea la red y el volumen
@@ -79,7 +94,8 @@ docker compose up -d --build
 cd /opt/proyecto/src/iot/central
 docker compose up -d --build
 
-# 4.4b Front de la central (puerto 8080): inventario global, transferencias y reportes
+# 4.4b Front de la central: HTTPS en el 443 (el 8080 solo redirige). También es la puerta de entrada
+# HTTPS a las APIs de la central (/svc/...), para el navegador, las bodegas y los gateways IoT
 cd /opt/proyecto/src/central_frontend
 docker compose up -d --build
 
@@ -99,7 +115,8 @@ docker compose -f docker/components/${wh_folder}/compose-warehouse.yml --project
 # Fase 12: borde IoT (broker MQTT + sensores simulados + gateway).
 # La máquina de wh-003 simula también WH-004 y WH-005: en total 5 bodegas y 100 sensores.
 export IOT_WAREHOUSES="${role == "wh-003" ? "WH-003,WH-004,WH-005" : upper(role)}"
-export INGEST_URL="http://${central_ip}:8005/ingest"
+# Los lotes de lecturas van a la central por HTTPS, verificando su certificado con la CA del proyecto
+export INGEST_URL="https://${central_ip}/svc/iot/ingest"
 cd /opt/proyecto/src/iot/edge
 docker compose up -d --build
 %{ endif ~}

@@ -7,7 +7,8 @@
 
 IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
-ID=$C:8008; RP=$C:8000
+# Direcciones por HTTPS y curl revisando los certificados con la CA del proyecto
+. scripts/https.sh
 ADMIN=$(bash scripts/token.sh)
 J='Content-Type: application/json'; ok=0; fail=0
 login() { curl -s -X POST $ID/auth/login -H "$J" -d "{\"username\":\"$1\",\"password\":\"$2\"}" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4; }
@@ -48,7 +49,7 @@ check "el Líder ve los contratos de wh-001" 200 $(codeHas "\"id\":$CT1," "$RP/c
 check "el Admin Global también los consulta" 200 $(codeHas "Aceros SAS" "$RP/contracts?search=aceros" -H "$A")
 check "link de descarga" 200 $(code $RP/contracts/$CT1/download -H "$L")
 URL=$(grep -o '"download_url":"[^"]*"' /tmp/body | cut -d'"' -f4 | sed 's/\\u0026/\&/g')
-curl -s -o /tmp/contratos/descargado.pdf "$URL"
+command curl -s -o /tmp/contratos/descargado.pdf "$URL"
 if [ "$(sha256sum < /tmp/contratos/descargado.pdf)" = "$(sha256sum < /tmp/contratos/suministro.pdf)" ]; then IGUAL=igual; else IGUAL=distinto; fi
 check "el archivo descargado de S3 es igual al cargado" igual $IGUAL
 check "verificar la huella SHA-256 del archivo en S3" 200 $(codeHas '"intact":true' $RP/contracts/$CT1/verify -H "$A")

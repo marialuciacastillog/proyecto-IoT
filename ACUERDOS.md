@@ -49,10 +49,12 @@
 - Orden para prender en la central: src/central_sync_worker -> reports -> src/central_transfers
 
 ## Fronts
-- Bodega: src/warehouse/src/frontend/app. La misma imagen en las 3 bodegas (puertos 8081, 8082, 8083).
+- Se entra a los dos por **HTTPS**: `https://<IP de la central>/` y `https://<IP de la bodega>/`. Los puertos HTTP
+  (8080 y 8081-8083) solo redirigen a HTTPS.
+- Bodega: src/warehouse/src/frontend/app. La misma imagen en las 3 bodegas.
   Nginx manda /api/... al balanceador de la bodega y entrega /config.js con WAREHOUSE_ID (del compose).
   Vistas: Resumen (stock y caché), Productos, Inventario (movimientos con X-Correlation-ID) e Historial.
-- Central: src/central_frontend (puerto 8080). Se prende después de src/central_sync_worker (usa iot-central-network).
+- Central: src/central_frontend (443, y el 8080 redirige). Se prende después de src/central_sync_worker (usa iot-central-network).
   Nginx reenvía /svc/reports/ -> iot-reports-api, /svc/transfers/ -> central_transfers_api y /svc/iot/ -> iot_ingestion.
   Vistas: Resumen, Inventario global (Read Model), Transferencias (saga) y Reportes (S3).
 - Login: los dos fronts usan session.js (mismo archivo). Cada elemento con data-roles="ROL1,ROL2" solo se ve para esos roles.
@@ -152,3 +154,17 @@
 - Estadísticas (RF-18), `GET /stats?days=30&warehouse_id=` (Líder y Admin Global): totales de compras y ventas, ventas y
   compras por día, por bodega, productos más vendidos, movimientos por tipo, transferencias por estado y alertas.
   Se calculan con `audit_log` (que ahora guarda tipo de movimiento, cantidad, precio y lote), `global_inventory` y `transfers`.
+
+## Seguridad de las comunicaciones
+
+- Detalle en `docs/seguridad.md`.
+- Cada máquina tiene una IP elástica fija (`infrastructure/https.tf`), que no cambia al recrear las EC2.
+- Terraform crea la CA del proyecto y un certificado por máquina, con su IP fija y el nombre `<máquina>.proyecto-iot.internal`.
+  El user_data los deja en `/opt/proyecto/secrets/tls/` (`server.crt`, `server.key`, `ca.crt`).
+- Desde internet solo se entra por el 443. Las APIs de la central van por `https://central/svc/<servicio>/` y las de
+  una bodega por `https://<bodega>/api/`. Los puertos 8000-8010 solo se abren entre las IPs de las máquinas.
+- El front de bodega le habla a la central por `https://<IP central>/svc/identity/` y `/svc/catalog/`, revisando el certificado
+  con el nombre `central.proyecto-iot.internal`. El gateway IoT manda a `https://<IP central>/svc/iot/ingest` con `SSL_CERT_FILE`.
+- Scripts: `. scripts/https.sh` saca las IPs, guarda la CA en `/tmp/proyecto-ca.crt`, hace que curl revise los certificados
+  y deja listas las variables `ID`, `CAT`, `NOT`, `TR`, `RP`, `WH`, `WH2` y `WH3`.
+- Permisos IAM de mínimo privilegio: diseñados en `infrastructure/iam/` (el Learner Lab no deja crear roles).

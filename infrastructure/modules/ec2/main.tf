@@ -9,17 +9,12 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# IP elástica (fija) para la central. Se crea ANTES que las máquinas, así las bodegas
-# saben desde el arranque dónde está la central (login del front e ingesta IoT).
-# Además no cambia si la máquina se apaga y se vuelve a prender (por ejemplo, al acabar la sesión del lab).
-resource "aws_eip" "central" {
-  domain = "vpc"
-  tags   = { Name = "eip-central" }
-}
-
-resource "aws_eip_association" "central" {
-  instance_id   = aws_instance.servers["central"].id
-  allocation_id = aws_eip.central.id
+# Cada máquina recibe su IP elástica (fija). Las IPs se crean afuera de este módulo (infrastructure/https.tf),
+# así no cambian al recrear las máquinas y las bodegas saben desde el arranque dónde está la central.
+resource "aws_eip_association" "servers" {
+  for_each      = var.subnet_ids
+  instance_id   = aws_instance.servers[each.key].id
+  allocation_id = var.elastic_ips[each.key].allocation_id
 }
 
 # Una máquina por VPC: wh-001, wh-002, wh-003 y central
@@ -55,7 +50,11 @@ resource "aws_instance" "servers" {
     audit_queue_url     = var.audit_queue_url
     jwt_private_key_pem = each.key == "central" ? var.jwt_private_key_pem : ""
     jwt_public_key_pem  = var.jwt_public_key_pem
-    central_ip          = aws_eip.central.public_ip
+    central_ip          = var.elastic_ips["central"].public_ip
+    # Certificado HTTPS de esta máquina (RNF-03) y la CA del proyecto
+    tls_cert_pem        = var.tls_certificates[each.key].cert_pem
+    tls_key_pem         = var.tls_certificates[each.key].key_pem
+    tls_ca_pem          = var.tls_ca_pem
   })
   user_data_replace_on_change = true
 

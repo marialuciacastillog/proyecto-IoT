@@ -1,0 +1,96 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LeerSusColas",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": [
+        "arn:aws:sqs:us-east-1:*:sync-queue",
+        "arn:aws:sqs:us-east-1:*:audit-queue",
+        "arn:aws:sqs:us-east-1:*:transfer-events",
+        "arn:aws:sqs:us-east-1:*:reports-queue",
+        "arn:aws:sqs:us-east-1:*:iot-storage",
+        "arn:aws:sqs:us-east-1:*:iot-alerts",
+        "arn:aws:sqs:us-east-1:*:iot-analytics"
+      ]
+    },
+    {
+      "Sid": "MandarOrdenesYReportes",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": [
+        "arn:aws:sqs:us-east-1:*:transfer-commands-wh-*",
+        "arn:aws:sqs:us-east-1:*:reports-queue",
+        "arn:aws:sqs:us-east-1:*:sync-queue-dlq",
+        "arn:aws:sqs:us-east-1:*:audit-queue-dlq"
+      ]
+    },
+    {
+      "Sid": "AtenderLasDLQ",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:GetQueueAttributes",
+        "sqs:SendMessage"
+      ],
+      "Resource": [
+        "arn:aws:sqs:us-east-1:*:*-dlq",
+        "arn:aws:sqs:us-east-1:*:sync-queue",
+        "arn:aws:sqs:us-east-1:*:audit-queue",
+        "arn:aws:sqs:us-east-1:*:transfer-events",
+        "arn:aws:sqs:us-east-1:*:reports-queue",
+        "arn:aws:sqs:us-east-1:*:transfer-commands-wh-*",
+        "arn:aws:sqs:us-east-1:*:iot-storage",
+        "arn:aws:sqs:us-east-1:*:iot-alerts",
+        "arn:aws:sqs:us-east-1:*:iot-analytics",
+        "arn:aws:sqs:us-east-1:*:catalog-wh-*"
+      ]
+    },
+    {
+      "Sid": "VerQueColasHay",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ListQueues",
+        "sns:ListTopics"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PublicarAvisos",
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": [
+        "arn:aws:sns:us-east-1:*:catalog-events",
+        "arn:aws:sns:us-east-1:*:iot-events"
+      ]
+    },
+    {
+      "Sid": "ReportesContratosYBatch",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/reports/*",
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/contratos/*",
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/warehouse-platform/reports/*"
+      ]
+    }
+  ]
+}

@@ -24,6 +24,8 @@ module "networking" {
   source       = "./modules/networking"
   vpc_cidrs    = var.vpc_cidrs
   subnet_cidrs = var.subnet_cidrs
+  # Los puertos internos (8000-8010) solo se abren a las IPs fijas de las máquinas del proyecto
+  machine_cidrs = [for ip in aws_eip.servers : "${ip.public_ip}/32"]
 }
 
 module "ec2" {
@@ -39,6 +41,9 @@ module "ec2" {
   audit_queue_url     = module.sns_events.audit_queue_url
   jwt_private_key_pem = tls_private_key.jwt.private_key_pem
   jwt_public_key_pem  = tls_private_key.jwt.public_key_pem
+  elastic_ips         = { for k, ip in aws_eip.servers : k => { public_ip = ip.public_ip, allocation_id = ip.id } }
+  tls_certificates    = { for k, cert in tls_locally_signed_cert.servers : k => { cert_pem = cert.cert_pem, key_pem = tls_private_key.servers[k].private_key_pem } }
+  tls_ca_pem          = tls_self_signed_cert.ca.cert_pem
 
   # Las suscripciones de SNS deben existir antes de que las bodegas empiecen a publicar
   depends_on = [module.sns_events, module.iot_events, module.catalog_events]

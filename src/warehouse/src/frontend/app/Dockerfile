@@ -8,4 +8,4 @@ COPY ./session.js /usr/share/nginx/html/session.js
 
 COPY ./default.conf.template /etc/nginx/templates/default.conf.template
 
-EXPOSE 80
+EXPOSE 80 443

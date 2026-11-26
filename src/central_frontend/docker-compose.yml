@@ -7,6 +7,10 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+      - "443:443"
+    volumes:
+      # Certificado HTTPS de la central (RNF-03)
+      - ${TLS_DIR:-/opt/proyecto/secrets/tls}:/etc/nginx/tls:ro
     networks:
       - iot-central-network
 

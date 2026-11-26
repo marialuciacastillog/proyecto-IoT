@@ -48,7 +48,7 @@ resource "aws_route_table_association" "routes" {
 resource "aws_security_group" "sgs" {
   for_each    = var.vpc_cidrs
   name        = "secgroup-${each.key}"
-  description = "Acceso SSH y API"
+  description = "SSH, HTTPS y puertos internos solo entre las maquinas del proyecto"
   vpc_id      = aws_vpc.vpcs[each.key].id
 
   ingress {
@@ -59,20 +59,33 @@ resource "aws_security_group" "sgs" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # RNF-03: desde internet solo se entra por HTTPS (443). Ahí está el front y, detrás, las APIs.
   ingress {
-    description = "API de las bodegas (8001, 8002, 8003)"
-    from_port   = 8000
-    to_port     = 8010
+    description = "HTTPS: fronts y APIs de la central y de las bodegas"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Los puertos HTTP de los fronts (8080 central, 8081-8083 bodegas) siguen abiertos,
+  # pero solo responden con una redirección a HTTPS.
   ingress {
-    description = "Frontend de las bodegas (8081, 8082, 8083)"
+    description = "HTTP de los fronts: redirige a HTTPS"
     from_port   = 8080
     to_port     = 8090
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Los puertos de las APIs (8000-8010) ya no se abren a internet: solo a las IPs fijas de las
+  # máquinas del proyecto (por ejemplo, la prueba de carga de la Fase 11 corre desde la central).
+  ingress {
+    description = "APIs internas, solo entre las maquinas del proyecto"
+    from_port   = 8000
+    to_port     = 8010
+    protocol    = "tcp"
+    cidr_blocks = var.machine_cidrs
   }
 
   egress {

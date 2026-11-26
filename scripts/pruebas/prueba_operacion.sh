@@ -11,7 +11,8 @@ IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
 W1=$(echo $IPS | grep -o '"wh-001":"[^"]*"' | cut -d'"' -f4)
 W2=$(echo $IPS | grep -o '"wh-002":"[^"]*"' | cut -d'"' -f4)
-ID=$C:8008; CAT=$C:8007; NOT=$C:8006; TR=$C:8010; WH=$W1:8001; WH2=$W2:8002
+# Direcciones por HTTPS y curl revisando los certificados con la CA del proyecto
+. scripts/https.sh
 KEY=~/Downloads/labsuser.pem
 SSHOPT="-i $KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 ADMIN=$(bash scripts/token.sh)

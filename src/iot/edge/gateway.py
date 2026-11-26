@@ -46,7 +46,8 @@ def findIngestUrl():
             for reservation in response["Reservations"]:
                 for instance in reservation["Instances"]:
                     if "PublicIpAddress" in instance:
-                        url = "http://" + instance["PublicIpAddress"] + ":8005/ingest"
+                        # Por HTTPS, por la puerta de entrada de la central (RNF-03)
+                        url = "https://" + instance["PublicIpAddress"] + "/svc/iot/ingest"
         except Exception as error:
             logJson("ERROR", "central_lookup_failed", {"error": str(error)})
         if url == "":

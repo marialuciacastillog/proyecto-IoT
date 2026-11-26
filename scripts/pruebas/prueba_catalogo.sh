@@ -8,7 +8,8 @@
 IPS=$(terraform -chdir=infrastructure output -json ec2_public_ips)
 C=$(echo $IPS | grep -o '"central":"[^"]*"' | cut -d'"' -f4)
 W1=$(echo $IPS | grep -o '"wh-001":"[^"]*"' | cut -d'"' -f4)
-ID=$C:8008; CAT=$C:8007; WH=$W1:8001; TR=$C:8010
+# Direcciones por HTTPS y curl revisando los certificados con la CA del proyecto
+. scripts/https.sh
 J='Content-Type: application/json'; ok=0; fail=0
 login() { curl -s -X POST $ID/auth/login -H "$J" -d "{\"username\":\"$1\",\"password\":\"$2\"}" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4; }
 code() { curl -s -o /tmp/body -w "%{http_code}" "$@"; }

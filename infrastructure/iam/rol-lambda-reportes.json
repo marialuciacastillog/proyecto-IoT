@@ -1,0 +1,46 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LeerReportesDelBatch",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/warehouse-platform/reports/*"
+      ]
+    },
+    {
+      "Sid": "EscribirResumenYAuditoria",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/warehouse-platform/exports/*",
+        "arn:aws:s3:::proyecto-iot-reportes-mlcg-2/warehouse-platform/audit/lambda/*"
+      ]
+    },
+    {
+      "Sid": "AvisarQueTermino",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage"
+      ],
+      "Resource": [
+        "arn:aws:sqs:us-east-1:*:report-events"
+      ]
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:*:log-group:/aws/lambda/report-processor:*"
+    }
+  ]
+}

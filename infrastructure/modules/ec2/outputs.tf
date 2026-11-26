@@ -1,7 +1,4 @@
-# La central se muestra con su IP elástica (la fija); las bodegas con la IP que les dio AWS
+# Cada máquina con su IP elástica (fija)
 output "public_ips" {
-  value = merge(
-    { for k, v in aws_instance.servers : k => v.public_ip },
-    { central = aws_eip.central.public_ip }
-  )
+  value = { for k, v in var.elastic_ips : k => v.public_ip }
 }

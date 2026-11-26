@@ -53,3 +53,19 @@ variable "jwt_public_key_pem" {
   type        = string
   description = "Llave pública para revisar tokens (la usan todas las máquinas)"
 }
+
+variable "elastic_ips" {
+  type        = map(object({ public_ip = string, allocation_id = string }))
+  description = "IP elástica de cada máquina (sale de https.tf)"
+}
+
+variable "tls_certificates" {
+  type        = map(object({ cert_pem = string, key_pem = string }))
+  sensitive   = true
+  description = "Certificado HTTPS y su llave para cada máquina"
+}
+
+variable "tls_ca_pem" {
+  type        = string
+  description = "Certificado de la CA del proyecto (para confiar en los certificados de las otras máquinas)"
+}
