@@ -1,0 +1,45 @@
+
+
+  █ THRESHOLDS 
+
+    checks{etapa:final}
+    ✓ 'rate==1' rate=100.00%
+
+    http_req_failed{tipo:venta}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 9942    109.509915/s
+    checks_succeeded...: 100.00% 9942 out of 9942
+    checks_failed......: 0.00%   0 out of 9942
+
+    ✓ la venta se hace (201) o se rechaza sin stock (400)
+    ✓ el stock nunca quedó negativo
+    ✓ stock final = stock inicial - ventas hechas
+    ✓ los lotes suman lo mismo que el stock
+
+    CUSTOM
+    ventas_hechas..................: 300    3.304463/s
+    ventas_rechazadas_sin_stock....: 9639   106.172407/s
+
+    HTTP
+    http_req_duration..............: avg=452.71ms min=6.73ms   med=421.77ms max=1.8s  p(90)=560.65ms p(95)=619.51ms
+      { expected_response:true }...: avg=452.71ms min=6.73ms   med=421.77ms max=1.8s  p(90)=560.65ms p(95)=619.51ms
+    http_req_failed................: 0.00%  0 out of 9946
+      { tipo:venta }...............: 0.00%  0 out of 9939
+    http_reqs......................: 9946   109.553974/s
+
+    EXECUTION
+    iteration_duration.............: avg=453.31ms min=216.31ms med=422.03ms max=1.83s p(90)=560.86ms p(95)=619.89ms
+    iterations.....................: 9939   109.47687/s
+    vus............................: 50     min=50        max=50
+    vus_max........................: 50     min=50        max=50
+
+    NETWORK
+    data_received..................: 4.0 MB 44 kB/s
+    data_sent......................: 9.1 MB 101 kB/s
+
+
+
