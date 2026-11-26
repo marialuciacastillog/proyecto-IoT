@@ -22,7 +22,10 @@
 
 ## Mensaje de reportes (API de reportes -> worker de reportes)
 { "job_id": "uuid", "report_type": "global_inventory", "format": "csv" }
-- report_type: global_inventory, inventory_by_warehouse, low_stock, transfers, audit (lista en reports/worker/queries.py)
+- report_type: global_inventory, inventory_by_warehouse, low_stock, transfers, audit, movements_history, sales_purchases,
+  sales_by_product, warehouse_summary, stock_alerts, contracts (lista en reports/worker/queries.py)
+- Los reportes históricos aceptan filtros al pedirlos: date_from, date_to, warehouse_id, product_id. Se guardan en
+  report_jobs.params y el worker los lee de ahí (el mensaje de la cola no cambia)
 - format: csv o json
 
 ## Base de datos central (central_db, puerto 5440)
@@ -132,3 +135,20 @@
   - `GET /alerts?status=OPEN` y `POST /alerts/{id}/review` con `{"note"}` (Admin por Bodega o Admin Global).
 - Transferencias: si el orquestador no puede mandar una orden (por ejemplo, la bodega destino está registrada pero no tiene cola),
   el estado igual avanza y la orden se reintenta; al vencerse el tiempo, la transferencia falla o se compensa. Así no quedan unidades apartadas para siempre.
+
+## Líder: contratos, estadísticas y reportes
+
+- Todo está en la API de reportes (puerto **8000**, `reports/api`), que el front central usa por `/svc/reports/`.
+- Contratos (RF-19, RF-20), `reports/api/contracts.py`:
+  - `POST /contracts` (solo el Líder) como formulario multipart: `file` + `title`, `contract_type` (PROVEEDOR, CLIENTE,
+    ARRENDAMIENTO, SERVICIO, OTRO), `counterparty`, `start_date`, y opcionales `end_date`, `warehouse_id`, `product_code`, `value`, `notes`.
+  - El archivo (PDF, .docx, PNG o JPG; máximo 10 MB; se revisa su contenido, no solo la extensión) va al bucket de reportes,
+    carpeta `contratos/CT-0001/`, cifrado con SSE-S3. La ficha queda en la tabla `contracts` de la base central, con su SHA-256.
+  - La bodega y el producto deben existir en el catálogo. El mismo archivo no se carga dos veces.
+  - `GET /contracts?warehouse_id=&contract_type=&search=&include_archived=`, `GET /contracts/{id}`,
+    `GET /contracts/{id}/download` (link de 15 min), `GET /contracts/{id}/verify` (compara la huella del archivo en S3).
+  - No se borran: `POST /contracts/{id}/archive` con `{"reason"}` (solo el Líder).
+  - Consultan el Líder y el Admin Global. Vigencia: VIGENTE, POR_VENCER (menos de 30 días), VENCIDO, FUTURO, ARCHIVADO.
+- Estadísticas (RF-18), `GET /stats?days=30&warehouse_id=` (Líder y Admin Global): totales de compras y ventas, ventas y
+  compras por día, por bodega, productos más vendidos, movimientos por tipo, transferencias por estado y alertas.
+  Se calculan con `audit_log` (que ahora guarda tipo de movimiento, cantidad, precio y lote), `global_inventory` y `transfers`.

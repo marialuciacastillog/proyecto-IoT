@@ -13,7 +13,7 @@ import psycopg
 from botocore.exceptions import ClientError
 from psycopg.rows import dict_row
 
-from worker.queries import REPORT_TYPES, FORMATS
+from worker.queries import REPORT_TYPES, FORMATS, FILTERS
 
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -42,11 +42,16 @@ logging.basicConfig(
 logger = logging.getLogger("reports.worker")
 
 
-# Corre la consulta del tipo de reporte y arma el archivo en el formato pedido
-def generate_report(report_type, report_format):
+# Corre la consulta del tipo de reporte y arma el archivo en el formato pedido.
+# Los reportes con filtros reciben todos los filtros; los que no se pidieron van como NULL.
+def generate_report(report_type, report_format, params=None):
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(REPORT_TYPES[report_type]["sql"])
+            if "filters" in REPORT_TYPES[report_type]:
+                values = {name: (params or {}).get(name) for name in FILTERS}
+                cursor.execute(REPORT_TYPES[report_type]["sql"], values)
+            else:
+                cursor.execute(REPORT_TYPES[report_type]["sql"])
             columns = [column.name for column in cursor.description]
             rows = cursor.fetchall()
 
@@ -72,7 +77,7 @@ def get_job(job_id):
         return conn.execute(
             """
             SELECT job_id, report_type, format,
-                   status, s3_key, lease_until
+                   status, s3_key, lease_until, params
             FROM report_jobs
             WHERE job_id = %s
             """,
@@ -218,7 +223,7 @@ def process_message(message):
     try:
         logger.info("Processing job %s", job_id)
 
-        content, row_count = generate_report(report_type, report_format)
+        content, row_count = generate_report(report_type, report_format, job.get("params"))
         s3_key = f"reports/{report_type}/{job_id}.{report_format}"
 
         s3.put_object(

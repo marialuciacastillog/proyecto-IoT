@@ -20,7 +20,9 @@
             <button data-view="transferencias">Transferencias</button>
             <button data-view="solicitudes" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">Solicitudes</button>
             <button data-view="notificaciones" data-roles="ADMIN_GLOBAL,ADMIN_BODEGA">Notificaciones <span class="count role-hidden" id="unread-count"></span></button>
+            <button data-view="estadisticas" data-roles="ADMIN_GLOBAL,LIDER">Estadísticas</button>
             <button data-view="reportes" data-roles="ADMIN_GLOBAL,LIDER">Reportes</button>
+            <button data-view="contratos" data-roles="ADMIN_GLOBAL,LIDER">Contratos</button>
             <button data-view="dlq" data-roles="ADMIN_GLOBAL">DLQ</button>
             <button data-view="usuarios" data-roles="ADMIN_GLOBAL">Usuarios</button>
         </nav>
@@ -146,6 +148,73 @@
             </div>
         </section>
 
+        <!-- ESTADÍSTICAS (RF-18) -->
+        <section class="view" id="view-estadisticas">
+            <div class="page-header">
+                <div>
+                    <h1>Estadísticas</h1>
+                    <p>Comportamiento del inventario, las compras y ventas, las transferencias y las alertas de las bodegas</p>
+                </div>
+                <div class="toolbar">
+                    <select id="st-days">
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30" selected>Últimos 30 días</option>
+                        <option value="90">Últimos 90 días</option>
+                        <option value="365">Último año</option>
+                    </select>
+                    <select id="st-warehouse"></select>
+                    <button class="btn btn-light" id="st-refresh">Actualizar</button>
+                </div>
+            </div>
+            <div class="grid grid-4">
+                <div class="card stat"><div class="label">Ventas</div><div class="value" id="st-sales">-</div><div class="hint" id="st-sales-hint"></div></div>
+                <div class="card stat"><div class="label">Compras</div><div class="value" id="st-purchases">-</div><div class="hint" id="st-purchases-hint"></div></div>
+                <div class="card stat"><div class="label">Ventas menos compras</div><div class="value" id="st-balance">-</div></div>
+                <div class="card stat"><div class="label">Movimientos</div><div class="value" id="st-movements">-</div></div>
+            </div>
+            <div class="grid grid-4 mt">
+                <div class="card stat"><div class="label">Unidades en bodegas hoy</div><div class="value" id="st-units">-</div></div>
+                <div class="card stat"><div class="label">Productos con poco stock</div><div class="value" id="st-low">-</div><div class="hint">Menos de 10 unidades en una bodega</div></div>
+                <div class="card stat"><div class="label">Transferencias completadas</div><div class="value" id="st-transfer-rate">-</div><div class="hint" id="st-transfer-hint"></div></div>
+                <div class="card stat"><div class="label">Alertas</div><div class="value" id="st-alerts">-</div><div class="hint">Incongruencias y avisos</div></div>
+            </div>
+            <div class="card mt">
+                <h2>Ventas y compras por día</h2>
+                <div class="bars" id="st-days-chart"></div>
+                <p class="sub"><span class="legend sales"></span> Ventas <span class="legend purchases"></span> Compras</p>
+            </div>
+            <div class="grid grid-2 mt">
+                <div class="card">
+                    <h2>Por bodega</h2>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>Bodega</th><th class="num">Unidades hoy</th><th class="num">Ventas</th><th class="num">Compras</th><th class="num">Movimientos</th></tr></thead>
+                        <tbody id="st-warehouses"></tbody>
+                    </table></div>
+                </div>
+                <div class="card">
+                    <h2>Productos más vendidos</h2>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>Producto</th><th class="num">Unidades</th><th class="num">Total</th></tr></thead>
+                        <tbody id="st-top"></tbody>
+                    </table></div>
+                </div>
+                <div class="card">
+                    <h2>Movimientos por tipo</h2>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>Tipo</th><th class="num">Movimientos</th><th class="num">Unidades</th></tr></thead>
+                        <tbody id="st-types"></tbody>
+                    </table></div>
+                </div>
+                <div class="card">
+                    <h2>Transferencias y alertas</h2>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>Estado o tipo</th><th class="num">Cantidad</th><th class="num">Detalle</th></tr></thead>
+                        <tbody id="st-transfers"></tbody>
+                    </table></div>
+                </div>
+            </div>
+        </section>
+
         <!-- REPORTES -->
         <section class="view" id="view-reportes">
             <div class="page-header">
@@ -161,7 +230,13 @@
                     <form id="report-form">
                         <div class="field"><label for="r-type">Tipo</label><select id="r-type" required></select></div>
                         <p class="sub" id="r-description"></p>
-                        <div class="field mt">
+                        <div class="form-row mt" id="r-filters">
+                            <div class="field" data-filter="date_from"><label for="rf-from">Desde</label><input id="rf-from" type="date"></div>
+                            <div class="field" data-filter="date_to"><label for="rf-to">Hasta</label><input id="rf-to" type="date"></div>
+                            <div class="field" data-filter="warehouse_id"><label for="rf-warehouse">Bodega</label><select id="rf-warehouse"></select></div>
+                            <div class="field" data-filter="product_id"><label for="rf-product">Producto</label><input id="rf-product" placeholder="P-001 (opcional)"></div>
+                        </div>
+                        <div class="field">
                             <label for="r-format">Formato</label>
                             <select id="r-format" required></select>
                         </div>
@@ -185,8 +260,58 @@
                 <h2>Reportes pedidos</h2>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Tipo</th><th>Formato</th><th>Estado</th><th>Pedido</th><th>Actualizado</th><th></th></tr></thead>
+                        <thead><tr><th>Reporte</th><th>Formato</th><th>Estado</th><th>Pedido</th><th>Actualizado</th><th></th></tr></thead>
                         <tbody id="reports-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONTRATOS (RF-19, RF-20) -->
+        <section class="view" id="view-contratos">
+            <div class="page-header">
+                <div>
+                    <h1>Contratos</h1>
+                    <p>Contratos digitales guardados en S3 (cifrados). Cada uno queda asociado a su contraparte y, si aplica, a una bodega y a un producto.</p>
+                </div>
+                <button class="btn btn-light" id="ct-refresh">Actualizar</button>
+            </div>
+            <div class="card" data-roles="LIDER">
+                <h2>Cargar un contrato</h2>
+                <form id="contract-form">
+                    <div class="form-row">
+                        <div class="field"><label for="ct-title">Título</label><input id="ct-title" required minlength="3" placeholder="Por ejemplo: Suministro de tornillos 2027"></div>
+                        <div class="field"><label for="ct-type">Tipo</label><select id="ct-type"></select></div>
+                        <div class="field"><label for="ct-counterparty">Con quién (contraparte)</label><input id="ct-counterparty" required placeholder="Aceros SAS"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="ct-warehouse">Bodega</label><select id="ct-warehouse"></select></div>
+                        <div class="field"><label for="ct-product">Producto</label><select id="ct-product"></select></div>
+                        <div class="field"><label for="ct-value">Valor</label><input id="ct-value" type="number" min="0" step="0.01" placeholder="Opcional"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label for="ct-start">Empieza</label><input id="ct-start" type="date" required></div>
+                        <div class="field"><label for="ct-end">Termina</label><input id="ct-end" type="date"></div>
+                        <div class="field"><label for="ct-file">Archivo (PDF, Word o imagen, máximo 10 MB)</label><input id="ct-file" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg" required></div>
+                    </div>
+                    <div class="field"><label for="ct-notes">Notas</label><textarea id="ct-notes" placeholder="Opcional"></textarea></div>
+                    <button class="btn btn-primary" type="submit">Cargar contrato</button>
+                </form>
+            </div>
+            <div class="card mt">
+                <div class="card-header">
+                    <h2>Contratos guardados</h2>
+                    <div class="toolbar">
+                        <select id="ctf-warehouse"></select>
+                        <select id="ctf-type"></select>
+                        <input id="ctf-search" type="search" placeholder="Título, contraparte o producto">
+                        <label class="check"><input type="checkbox" id="ctf-archived"> Ver archivados</label>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Contrato</th><th>Tipo</th><th>Contraparte</th><th>Asociado a</th><th>Vigencia</th><th class="num">Valor</th><th>Cargado</th><th></th></tr></thead>
+                        <tbody id="contracts-body"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
                     </table>
                 </div>
             </div>

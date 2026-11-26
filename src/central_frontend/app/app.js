@@ -30,6 +30,8 @@ const state = {
     requests: [],
     notifications: [],
     dlq: [],
+    contracts: [],
+    contractTypes: [],
     timer: null
 };
 
@@ -259,12 +261,24 @@ async function queryGlobal(event) {
 
 // ---------- Reportes ----------
 
+// Nombres en español de los reportes (el nombre interno sigue siendo el de reports/worker/queries.py)
+const REPORT_LABELS = {
+    global_inventory: "Inventario global", inventory_by_warehouse: "Inventario por bodega", low_stock: "Poco stock",
+    transfers: "Transferencias", audit: "Auditoría de eventos", movements_history: "Historial de movimientos",
+    sales_purchases: "Compras y ventas", sales_by_product: "Compras y ventas por producto",
+    warehouse_summary: "Consolidado por bodega", stock_alerts: "Alertas de las bodegas", contracts: "Contratos"
+};
+
+function reportLabel(type) {
+    return REPORT_LABELS[type] || type;
+}
+
 async function loadReportTypes() {
     try {
         const data = await api("reports", "/reports/types");
         state.reportTypes = data.report_types;
         document.getElementById("r-type").innerHTML = data.report_types.map(r =>
-            '<option value="' + esc(r.report_type) + '">' + esc(r.report_type) + "</option>"
+            '<option value="' + esc(r.report_type) + '">' + esc(reportLabel(r.report_type)) + "</option>"
         ).join("");
         document.getElementById("r-format").innerHTML = data.formats.map(f =>
             '<option value="' + esc(f) + '">' + esc(f.toUpperCase()) + "</option>"
@@ -275,10 +289,25 @@ async function loadReportTypes() {
     }
 }
 
+// Solo se muestran los filtros que acepta el reporte elegido
 function showReportDescription() {
     const selected = document.getElementById("r-type").value;
     const type = state.reportTypes.find(r => r.report_type === selected);
     document.getElementById("r-description").textContent = type ? type.description : "";
+    const filters = type && type.filters ? type.filters : [];
+    document.querySelectorAll("#r-filters [data-filter]").forEach(field => {
+        field.classList.toggle("role-hidden", !filters.includes(field.dataset.filter));
+    });
+    document.getElementById("r-filters").classList.toggle("role-hidden", filters.length === 0);
+}
+
+function describeParams(params) {
+    const parts = [];
+    if (params && params.date_from) parts.push("desde " + params.date_from);
+    if (params && params.date_to) parts.push("hasta " + params.date_to);
+    if (params && params.warehouse_id) parts.push(params.warehouse_id);
+    if (params && params.product_id) parts.push(params.product_id);
+    return parts.join(" · ");
 }
 
 async function loadJobs() {
@@ -310,12 +339,14 @@ function renderJobs() {
         const action = j.status === "COMPLETED"
             ? '<button class="link" data-download="' + esc(j.job_id) + '">Descargar</button>'
             : "";
-        return "<tr><td>" + esc(j.report_type) + "</td><td>" + esc(String(j.format).toUpperCase()) + "</td><td>" +
+        const params = describeParams(j.params);
+        return "<tr><td>" + esc(reportLabel(j.report_type)) + (params ? '<span class="sub">' + esc(params) + "</span>" : "") +
+            "</td><td>" + esc(String(j.format).toUpperCase()) + "</td><td>" +
             reportBadge(j.status) + "</td><td>" + formatDate(j.created_at) + "</td><td>" + formatDate(j.updated_at) +
             "</td><td>" + action + "</td></tr>";
     }).join("");
     summary.innerHTML = list.slice(0, 6).map(j =>
-        "<tr><td>" + esc(j.report_type) + "</td><td>" + esc(String(j.format).toUpperCase()) + "</td><td>" +
+        "<tr><td>" + esc(reportLabel(j.report_type)) + "</td><td>" + esc(String(j.format).toUpperCase()) + "</td><td>" +
         reportBadge(j.status) + "</td><td>" + formatDate(j.created_at) + "</td></tr>"
     ).join("");
 }
@@ -327,6 +358,19 @@ async function createReport(event) {
         report_type: document.getElementById("r-type").value,
         format: document.getElementById("r-format").value
     };
+    const type = state.reportTypes.find(r => r.report_type === payload.report_type);
+    const filters = type && type.filters ? type.filters : [];
+    const values = {
+        date_from: document.getElementById("rf-from").value,
+        date_to: document.getElementById("rf-to").value,
+        warehouse_id: document.getElementById("rf-warehouse").value,
+        product_id: document.getElementById("rf-product").value.trim()
+    };
+    filters.forEach(name => {
+        if (values[name]) {
+            payload[name] = values[name];
+        }
+    });
     form.querySelector("button").disabled = true;
     try {
         await api("reports", "/reports", postJson(payload));
@@ -376,6 +420,214 @@ async function refresh() {
     }
     await Promise.all(loads);
     schedulePolling();
+}
+
+
+// ---------- Estadísticas (RF-18) ----------
+
+const MOVEMENT_LABELS = {
+    PURCHASE: "Compras", SALE: "Ventas", RECEIPT: "Entradas", SHIPMENT: "Salidas", RETURN: "Devoluciones",
+    TRANSFER_IN: "Transferencias recibidas", RESERVATION: "Reservas", RELEASE: "Reservas liberadas",
+    RESERVATION_CONFIRM: "Salidas por transferencia", TRANSFER_OUT: "Transferencias enviadas", SIN_TIPO: "Sin tipo (antes de los lotes)"
+};
+const ALERT_LABELS = {
+    INCONGRUENCIA: "Incongruencias", RESERVA_VENCIDA: "Reservas vencidas", LOTE_VENCIDO: "Lotes vencidos",
+    TRANSFERENCIA_SIN_CERRAR: "Transferencias sin cerrar"
+};
+
+async function loadStats() {
+    const days = document.getElementById("st-days").value;
+    const warehouse = document.getElementById("st-warehouse").value;
+    try {
+        const data = await api("reports", "/stats?days=" + days + (warehouse ? "&warehouse_id=" + encodeURIComponent(warehouse) : ""));
+        renderStats(data);
+    } catch (error) {
+        document.getElementById("st-days-chart").innerHTML = '<p class="sub">' + esc(error.message) + "</p>";
+    }
+}
+
+function emptyRow(columns, text) {
+    return '<tr><td colspan="' + columns + '" class="empty">' + text + "</td></tr>";
+}
+
+function renderStats(data) {
+    const t = data.totals;
+    document.getElementById("st-sales").textContent = formatMoney(t.sales_amount);
+    document.getElementById("st-sales-hint").textContent = formatNumber(t.sales_count) + " ventas · " + formatNumber(t.sales_units) + " unidades";
+    document.getElementById("st-purchases").textContent = formatMoney(t.purchases_amount);
+    document.getElementById("st-purchases-hint").textContent = formatNumber(t.purchases_count) + " compras · " + formatNumber(t.purchases_units) + " unidades";
+    document.getElementById("st-balance").textContent = formatMoney(t.balance);
+    document.getElementById("st-movements").textContent = formatNumber(t.movements);
+    const units = data.inventory.reduce((sum, row) => sum + Number(row.units), 0);
+    const low = data.inventory.reduce((sum, row) => sum + Number(row.low_stock), 0);
+    document.getElementById("st-units").textContent = formatNumber(units);
+    document.getElementById("st-low").textContent = formatNumber(low);
+    const transfers = data.transfers.reduce((sum, row) => sum + Number(row.transfers), 0);
+    document.getElementById("st-transfer-rate").textContent = data.transfer_success_rate === null ? "-" : data.transfer_success_rate + "%";
+    document.getElementById("st-transfer-hint").textContent = formatNumber(transfers) + " transferencias en total";
+    document.getElementById("st-alerts").textContent = formatNumber(data.alerts.reduce((sum, row) => sum + Number(row.alerts), 0));
+
+    // Barras: cada día tiene una barra de ventas y otra de compras, en proporción al día más alto
+    const chart = document.getElementById("st-days-chart");
+    const top = Math.max(1, ...data.by_day.map(d => Math.max(Number(d.sales_amount), Number(d.purchases_amount))));
+    chart.innerHTML = data.by_day.length === 0 ? '<p class="sub">No hay movimientos en estos días</p>' : data.by_day.map(d =>
+        '<div class="bar-day" title="' + esc(d.day) + ": ventas " + formatMoney(d.sales_amount) + ", compras " + formatMoney(d.purchases_amount) + '">' +
+        '<div class="bar-pair"><div class="bar sales" style="height:' + Math.round(Number(d.sales_amount) * 150 / top) + 'px"></div>' +
+        '<div class="bar purchases" style="height:' + Math.round(Number(d.purchases_amount) * 150 / top) + 'px"></div></div>' +
+        '<div class="bar-label">' + esc(String(d.day).slice(5)) + "</div></div>").join("");
+
+    const inventory = {};
+    data.inventory.forEach(row => { inventory[row.warehouse_id] = row.units; });
+    const warehouses = new Set(data.by_warehouse.map(w => w.warehouse_id).concat(Object.keys(inventory)));
+    document.getElementById("st-warehouses").innerHTML = warehouses.size === 0 ? emptyRow(5, "Sin datos") : Array.from(warehouses).sort().map(id => {
+        const row = data.by_warehouse.find(w => w.warehouse_id === id) || { sales_amount: 0, purchases_amount: 0, movements: 0 };
+        return "<tr><td>" + esc(id) + '</td><td class="num">' + formatNumber(inventory[id] || 0) + '</td><td class="num">' + formatMoney(row.sales_amount) +
+            '</td><td class="num">' + formatMoney(row.purchases_amount) + '</td><td class="num">' + formatNumber(row.movements) + "</td></tr>";
+    }).join("");
+    document.getElementById("st-top").innerHTML = data.top_products.length === 0 ? emptyRow(3, "Todavía no hay ventas") : data.top_products.map(p =>
+        "<tr><td><strong>" + esc(p.product_id) + '</strong><span class="sub">' + esc(p.name || "") + '</span></td><td class="num">' +
+        formatNumber(p.units) + '</td><td class="num">' + formatMoney(p.amount) + "</td></tr>").join("");
+    document.getElementById("st-types").innerHTML = data.movement_types.length === 0 ? emptyRow(3, "Sin movimientos") : data.movement_types.map(m =>
+        "<tr><td>" + esc(MOVEMENT_LABELS[m.movement_type] || m.movement_type) + '</td><td class="num">' + formatNumber(m.movements) +
+        '</td><td class="num">' + formatNumber(m.units) + "</td></tr>").join("");
+    const rows = data.transfers.map(tr =>
+        "<tr><td>" + transferBadge(tr.status) + '</td><td class="num">' + formatNumber(tr.transfers) + '</td><td class="num">' +
+        formatNumber(tr.units) + " u · " + (tr.average_seconds === null ? "-" : tr.average_seconds + " s") + "</td></tr>").concat(
+        data.alerts.map(a => '<tr><td><span class="badge warn">' + esc(ALERT_LABELS[a.alert_type] || a.alert_type) + '</span></td><td class="num">' +
+            formatNumber(a.alerts) + '</td><td class="num">alertas</td></tr>'));
+    document.getElementById("st-transfers").innerHTML = rows.length === 0 ? emptyRow(3, "Sin transferencias ni alertas") : rows.join("");
+}
+
+
+// ---------- Contratos (RF-19, RF-20) ----------
+
+const VALIDITY = {
+    VIGENTE: ["Vigente", "ok"], POR_VENCER: ["Por vencer", "warn"], VENCIDO: ["Vencido", "error"],
+    FUTURO: ["Aún no empieza", "info"], ARCHIVADO: ["Archivado", "neutral"]
+};
+
+async function loadContractTypes() {
+    try {
+        state.contractTypes = await api("reports", "/contracts/types");
+    } catch (error) {
+        state.contractTypes = [];
+    }
+    const options = state.contractTypes.map(t => '<option value="' + esc(t.contract_type) + '">' + esc(t.label) + "</option>").join("");
+    document.getElementById("ct-type").innerHTML = options;
+    document.getElementById("ctf-type").innerHTML = '<option value="">Todos los tipos</option>' + options;
+}
+
+async function loadContracts() {
+    const params = new URLSearchParams();
+    const warehouse = document.getElementById("ctf-warehouse").value;
+    const type = document.getElementById("ctf-type").value;
+    const search = document.getElementById("ctf-search").value.trim();
+    if (warehouse) params.set("warehouse_id", warehouse);
+    if (type) params.set("contract_type", type);
+    if (search) params.set("search", search);
+    params.set("include_archived", document.getElementById("ctf-archived").checked);
+    try {
+        state.contracts = await api("reports", "/contracts?" + params.toString());
+    } catch (error) {
+        state.contracts = [];
+        document.getElementById("contracts-body").innerHTML = emptyRow(8, esc(error.message));
+        return;
+    }
+    renderContracts();
+}
+
+function renderContracts() {
+    const body = document.getElementById("contracts-body");
+    const isLeader = hasRole("LIDER");
+    if (state.contracts.length === 0) {
+        body.innerHTML = emptyRow(8, "No hay contratos");
+        return;
+    }
+    body.innerHTML = state.contracts.map(c => {
+        const validity = VALIDITY[c.validity] || [c.validity, "neutral"];
+        const linked = [c.warehouse_id, c.product_code].filter(Boolean).map(esc).join(" · ") || "-";
+        let actions = '<button class="link" data-contract-download="' + c.id + '">Descargar</button> · <button class="link" data-contract-verify="' + c.id + '">Verificar</button>';
+        if (isLeader && c.status === "ACTIVE") {
+            actions += ' · <button class="link" data-contract-archive="' + c.id + '">Archivar</button>';
+        }
+        const dates = esc(c.start_date) + " a " + (c.end_date ? esc(c.end_date) : "sin fecha de fin");
+        return "<tr><td><strong>" + esc(c.label) + "</strong> " + esc(c.title) + '<span class="sub">' + esc(c.file_name) + " · " +
+            formatNumber(Math.ceil(c.size_bytes / 1024)) + " KB</span></td><td>" + esc(c.type_label) + "</td><td>" + esc(c.counterparty) +
+            "</td><td>" + linked + '</td><td><span class="badge ' + validity[1] + '">' + esc(validity[0]) + '</span><span class="sub">' + dates +
+            (c.archive_reason ? " · " + esc(c.archive_reason) : "") + '</span></td><td class="num">' + formatMoney(c.value) + "</td><td>" +
+            formatDate(c.uploaded_at) + '<span class="sub">' + esc(c.uploaded_by) + "</span></td><td>" + actions + "</td></tr>";
+    }).join("");
+}
+
+// El archivo va como formulario (multipart): el navegador pone solo el Content-Type
+async function uploadContract(event) {
+    event.preventDefault();
+    const form = event.target;
+    const file = document.getElementById("ct-file").files[0];
+    if (!file) {
+        toast("Elige el archivo del contrato", "error");
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        toast("El archivo pesa más de 10 MB", "error");
+        return;
+    }
+    const data = new FormData();
+    data.append("file", file);
+    [["title", "ct-title"], ["contract_type", "ct-type"], ["counterparty", "ct-counterparty"], ["start_date", "ct-start"],
+     ["end_date", "ct-end"], ["warehouse_id", "ct-warehouse"], ["product_code", "ct-product"], ["value", "ct-value"], ["notes", "ct-notes"]].forEach(pair => {
+        const value = document.getElementById(pair[1]).value.trim();
+        if (value) {
+            data.append(pair[0], value);
+        }
+    });
+    form.querySelector("button[type=submit]").disabled = true;
+    try {
+        const contract = await api("reports", "/contracts", { method: "POST", body: data });
+        toast("Contrato " + contract.label + " guardado en S3");
+        form.reset();
+        await loadContracts();
+    } catch (error) {
+        toast(error.message, "error");
+    }
+    form.querySelector("button[type=submit]").disabled = false;
+}
+
+async function contractAction(event) {
+    const target = event.target.dataset;
+    try {
+        if (target.contractDownload) {
+            const data = await api("reports", "/contracts/" + target.contractDownload + "/download");
+            window.open(data.download_url, "_blank");
+        } else if (target.contractVerify) {
+            const data = await api("reports", "/contracts/" + target.contractVerify + "/verify");
+            toast(data.intact ? data.contract + ": el archivo en S3 es el mismo que se cargó" : data.contract + ": ¡el archivo cambió!", data.intact ? "ok" : "error");
+        } else if (target.contractArchive) {
+            openArchive(parseInt(target.contractArchive, 10));
+        }
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+function openArchive(contractId) {
+    const c = state.contracts.find(item => item.id === contractId);
+    document.getElementById("detail-title").textContent = "Archivar " + c.label;
+    document.getElementById("detail-body").innerHTML = "<p>" + esc(c.title) + " · " + esc(c.counterparty) + "</p>" +
+        '<p class="sub">El contrato no se borra: queda archivado con el motivo y se puede seguir consultando.</p>' +
+        '<div class="field mt"><label for="ct-archive-reason">Motivo</label><textarea id="ct-archive-reason" placeholder="Por ejemplo: se cargó el archivo equivocado"></textarea></div>' +
+        '<button class="btn btn-primary" id="ct-archive-confirm">Archivar</button>';
+    document.getElementById("detail-modal").classList.add("open");
+    document.getElementById("ct-archive-confirm").addEventListener("click", async () => {
+        try {
+            await api("reports", "/contracts/" + c.id + "/archive", postJson({ reason: document.getElementById("ct-archive-reason").value.trim() }));
+            toast(c.label + " archivado");
+            document.getElementById("detail-modal").classList.remove("open");
+            await loadContracts();
+        } catch (error) {
+            toast(error.message, "error");
+        }
+    });
 }
 
 
@@ -480,6 +732,14 @@ function fillWarehouseSelects() {
         if (current && active.some(w => w.warehouse_id === current)) {
             select.value = current;
         }
+    });
+    // Filtros por bodega (reportes, estadísticas y contratos): todas las bodegas, también las archivadas
+    const all = state.warehouses.map(w => '<option value="' + esc(w.warehouse_id) + '">' + esc(w.warehouse_id) + " · " + esc(w.name) + "</option>").join("");
+    [["rf-warehouse", "Todas las bodegas"], ["st-warehouse", "Todas las bodegas"], ["ctf-warehouse", "Todas las bodegas"], ["ct-warehouse", "Ninguna en particular"]].forEach(pair => {
+        const select = document.getElementById(pair[0]);
+        const current = select.value;
+        select.innerHTML = '<option value="">' + pair[1] + "</option>" + all;
+        select.value = current;
     });
     if (active.length > 1 && document.getElementById("t-destination").value === document.getElementById("t-source").value) {
         document.getElementById("t-destination").value = active.find(w => w.warehouse_id !== document.getElementById("t-source").value).warehouse_id;
@@ -618,6 +878,14 @@ async function loadCatalog() {
         return;
     }
     renderCatalog();
+    // El selector de producto de los contratos usa el catálogo completo (sin la búsqueda)
+    if (search === "") {
+        const select = document.getElementById("ct-product");
+        const current = select.value;
+        select.innerHTML = '<option value="">Ninguno en particular</option>' + state.catalog.map(p =>
+            '<option value="' + esc(p.product_code) + '">' + esc(p.product_code) + " · " + esc(p.name) + "</option>").join("");
+        select.value = current;
+    }
 }
 
 function renderCatalog() {
@@ -1093,6 +1361,9 @@ async function startApp(session) {
     }
     if (hasRole(...REPORT_ROLES)) {
         loadReportTypes();
+        loadStats();
+        loadContractTypes();
+        loadContracts();
     }
     if (hasRole("ADMIN_GLOBAL")) {
         toggleWarehouseField();
@@ -1119,6 +1390,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("global-form").addEventListener("submit", queryGlobal);
     document.getElementById("report-form").addEventListener("submit", createReport);
     document.getElementById("r-type").addEventListener("change", showReportDescription);
+    document.getElementById("st-refresh").addEventListener("click", loadStats);
+    document.getElementById("st-days").addEventListener("change", loadStats);
+    document.getElementById("st-warehouse").addEventListener("change", loadStats);
+    document.getElementById("contract-form").addEventListener("submit", uploadContract);
+    document.getElementById("ct-refresh").addEventListener("click", loadContracts);
+    ["ctf-warehouse", "ctf-type", "ctf-archived"].forEach(id => document.getElementById(id).addEventListener("change", loadContracts));
+    document.getElementById("ctf-search").addEventListener("input", loadContracts);
+    document.getElementById("contracts-body").addEventListener("click", contractAction);
     document.addEventListener("click", event => {
         const transferId = event.target.dataset.transfer;
         const jobId = event.target.dataset.download;

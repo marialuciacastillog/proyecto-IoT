@@ -25,6 +25,7 @@ services:
       # Tablas de reportes
       - ../../reports/db/reports.sql:/docker-entrypoint-initdb.d/03_reports.sql:ro
       - ../../reports/db/migrations/002_report_reliability.sql:/docker-entrypoint-initdb.d/04_report_reliability.sql:ro
+      - ../../reports/db/migrations/003_report_params.sql:/docker-entrypoint-initdb.d/05_report_params.sql:ro
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d central_db"]

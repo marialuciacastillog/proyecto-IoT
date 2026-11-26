@@ -1,23 +1,31 @@
 
 import os
+import re
+import time
 import uuid
+from datetime import date
+from typing import Optional
 
 import psycopg
 
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 import boto3
 
 from worker.queries import REPORT_TYPES, FORMATS
 from api.auth import requireRoles
 from api.roles import ADMIN_GLOBAL, LIDER
+from api import contracts, stats
 
 # Los reportes los ven el Administrador Global y el Líder (RF-17, RF-30)
 reportReaders = Depends(requireRoles(ADMIN_GLOBAL, LIDER))
 
 
 app = FastAPI(title="IoT Reports API")
+app.include_router(contracts.router)
+app.include_router(stats.router)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 BUCKET_NAME = os.environ.get("REPORTS_BUCKET_NAME", "")
@@ -29,6 +37,50 @@ s3 = boto3.client("s3", region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 class ReportRequest(BaseModel):
     report_type: str = "global_inventory"
     format: str = "csv"
+    # Filtros de los reportes históricos (RF-29, RF-30). Los que no se mandan no filtran.
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+    warehouse_id: Optional[str] = None
+    product_id: Optional[str] = None
+
+
+# Al arrancar: la columna de filtros de los reportes y la tabla de contratos
+@app.on_event("startup")
+def startup():
+    ready = False
+    attempts = 0
+    while not ready and attempts < 20:
+        try:
+            with psycopg.connect(DATABASE_URL) as conn:
+                conn.execute("ALTER TABLE report_jobs ADD COLUMN IF NOT EXISTS params JSONB")
+            contracts.createTables()
+            ready = True
+        except psycopg.Error as error:
+            attempts = attempts + 1
+            print("Esperando la base central:", error, flush=True)
+            time.sleep(3)
+
+
+# Revisa los filtros y devuelve solo los que el tipo de reporte acepta
+def reportParams(request):
+    allowed = REPORT_TYPES[request.report_type].get("filters", [])
+    values = {
+        "date_from": request.date_from.isoformat() if request.date_from else None,
+        "date_to": request.date_to.isoformat() if request.date_to else None,
+        "warehouse_id": (request.warehouse_id or "").strip().lower() or None,
+        "product_id": (request.product_id or "").strip().upper() or None
+    }
+    params = {}
+    for name, value in values.items():
+        if value is not None and name not in allowed:
+            raise HTTPException(status_code=400, detail="El reporte " + request.report_type + " no acepta el filtro " + name)
+        if value is not None:
+            params[name] = value
+    if request.date_from and request.date_to and request.date_to < request.date_from:
+        raise HTTPException(status_code=400, detail="La fecha 'hasta' no puede ser antes de la fecha 'desde'")
+    if params.get("warehouse_id") and not re.match(r"^wh-[0-9]{3}$", params["warehouse_id"]):
+        raise HTTPException(status_code=400, detail="La bodega debe tener la forma wh-001")
+    return params
 
 
 @app.get("/health")
@@ -60,6 +112,7 @@ def create_report(request: ReportRequest, user=reportReaders):
             detail="Unknown format. Options: " + ", ".join(FORMATS)
         )
 
+    params = reportParams(request)
     job_id = uuid.uuid4()
 
     try:
@@ -68,14 +121,15 @@ def create_report(request: ReportRequest, user=reportReaders):
                 cursor.execute(
                     """
                     INSERT INTO report_jobs
-                        (job_id, report_type, format, status)
-                    VALUES (%s, %s, %s, %s)
+                        (job_id, report_type, format, status, params)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
                     (
                         job_id,
                         request.report_type,
                         request.format,
-                        "PENDING"
+                        "PENDING",
+                        Jsonb(params)
                     )
                 )
 
@@ -95,7 +149,8 @@ def create_report(request: ReportRequest, user=reportReaders):
 
     return {
         "job_id": str(job_id),
-        "status": "PENDING"
+        "status": "PENDING",
+        "params": params
     }
 
 
@@ -105,7 +160,7 @@ def list_report_types(user=reportReaders):
     return {
         "formats": list(FORMATS),
         "report_types": [
-            {"report_type": name, "description": info["description"]}
+            {"report_type": name, "description": info["description"], "filters": info.get("filters", [])}
             for name, info in REPORT_TYPES.items()
         ]
     }
@@ -120,7 +175,7 @@ def list_report_jobs(limit: int = 20, status: str | None = None, user=reportRead
             if status is None:
                 jobs = conn.execute(
                     """
-                    SELECT job_id, report_type, format, status, s3_key, created_at, updated_at
+                    SELECT job_id, report_type, format, status, s3_key, params, created_at, updated_at
                     FROM report_jobs
                     ORDER BY created_at DESC
                     LIMIT %s
@@ -130,7 +185,7 @@ def list_report_jobs(limit: int = 20, status: str | None = None, user=reportRead
             else:
                 jobs = conn.execute(
                     """
-                    SELECT job_id, report_type, format, status, s3_key, created_at, updated_at
+                    SELECT job_id, report_type, format, status, s3_key, params, created_at, updated_at
                     FROM report_jobs
                     WHERE status = %s
                     ORDER BY created_at DESC

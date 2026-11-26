@@ -186,3 +186,12 @@ td strong { white-space: nowrap; }
 pre.body { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow-y: auto; }
 .dlq-message { border-bottom: 1px solid var(--border); padding: 0.75rem 0; }
 .changes td:first-child { color: var(--muted); }
+/* Gráfico de barras de las estadísticas (ventas y compras por día) */
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 190px; overflow-x: auto; padding: 0.5rem 0; }
+.bar-day { display: flex; flex-direction: column; align-items: center; min-width: 30px; flex: 1; }
+.bar-pair { display: flex; gap: 2px; align-items: flex-end; height: 150px; }
+.bar { width: 11px; border-radius: 3px 3px 0 0; min-height: 1px; }
+.bar.sales, .legend.sales { background: var(--primary); }
+.bar.purchases, .legend.purchases { background: var(--warn); }
+.bar-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.3rem; white-space: nowrap; }
+.legend { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 0.3rem 0 0.8rem; }
