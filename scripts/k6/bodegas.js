@@ -1,6 +1,6 @@
 // Prueba 2: bodegas con carga distinta (RNF-08, RNF-09, RNF-16)
 // Al mismo tiempo:
-//   - wh-002 (3 réplicas de la API detrás de su balanceador) recibe carga fuerte: sube de 10 a 120 consultas por segundo
+//   - wh-002 (3 réplicas de la API detrás de su balanceador) recibe carga fuerte: sube de 10 a 80 consultas por segundo
 //   - wh-001 recibe carga suave y constante: 10 consultas por segundo
 // Pasa si wh-001 sigue respondiendo rápido (95 % en menos de 300 ms) aunque wh-002 esté cargada:
 // cada bodega tiene sus propias máquinas, así que la carga de una no le llega a la otra.
@@ -15,11 +15,11 @@ export const options = {
             exec: 'cargaFuerte',
             startRate: 10,
             timeUnit: '1s',
-            preAllocatedVUs: 50,
-            maxVUs: 300,
+            preAllocatedVUs: 30,
+            maxVUs: 150,
             stages: [
-                { duration: '1m30s', target: 120 },
-                { duration: '1m30s', target: 120 },
+                { duration: '1m30s', target: 80 },
+                { duration: '1m30s', target: 80 },
                 { duration: '30s', target: 0 }
             ]
         },

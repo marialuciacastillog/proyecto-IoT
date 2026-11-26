@@ -172,10 +172,10 @@
 ## Pruebas de carga con k6
 
 - Están en `scripts/k6/` y se corren con `bash scripts/k6/correr.sh` (o `bash scripts/k6/correr.sh ventas` para una sola).
-- k6 no se instala: corre en Docker (`grafana/k6`) dentro de la central, por HTTPS y confiando en la CA del proyecto.
+- k6 no se instala: corre en Docker (`grafana/k6`) dentro de la máquina de wh-003 (que no se mide), por HTTPS y confiando en la CA del proyecto.
 - Cada prueba deja en `resultados/k6/` un reporte HTML con gráficos (panel web de k6) y un .txt con el resumen.
   - `consultas.js`: hasta 50 usuarios consultando el inventario de wh-001 (RNF-06).
-  - `bodegas.js`: carga fuerte en wh-002 y suave en wh-001 al mismo tiempo (RNF-08, RNF-09, RNF-16).
+  - `bodegas.js`: carga fuerte en wh-002 (hasta 80 por segundo) y suave en wh-001 al mismo tiempo (RNF-08, RNF-09, RNF-16).
   - `ventas.js`: 50 usuarios vendiendo P-002 a la vez; al final se revisa que el stock cuadre (RNF-05).
   - `reportes.js`: pedir reportes pesados mientras se mide la API de la central (RNF-07).
 - Se corren después de las pruebas de `scripts/pruebas/`, porque necesitan los usuarios y productos que esas dejan.
