@@ -22,11 +22,11 @@ echo "     CA del proyecto: $(openssl x509 -in $CA -noout -subject 2>/dev/null)"
 for name in central:$C wh-001:$W1 wh-002:$W2 wh-003:$W3; do
   ip=${name#*:}
   info=$(echo | openssl s_client -connect $ip:443 -CAfile $CA -verify_ip $ip 2>/dev/null)
-  check "${name%%:*}: certificado válido para la IP $ip" "0 \(ok\)" "$(echo "$info" | grep -o 'Verify return code: [0-9]* ([a-z]*)' | cut -d: -f2 | sed 's/^ //')"
-  echo "     $(echo "$info" | openssl x509 -noout -subject -enddate 2>/dev/null | tr '\n' ' ')"
+  check "${name%%:*}: certificado válido para la IP $ip" "0 \(ok\)" "$(echo "$info" | grep -o 'Verify return code: [0-9]* ([a-z]*)' | head -1 | cut -d: -f2 | sed 's/^ //')"
+  echo "     $(echo "$info" | openssl x509 -noout -subject -enddate 2>/dev/null | tr -d '\r' | tr '\n' ' ')"
 done
 check "sin la CA del proyecto, curl no confía (no es un certificado cualquiera)" "60|35" "$(command curl -s -o /dev/null https://$C/ ; echo $?)"
-check "TLS 1.1 o más viejo no se acepta" rechazado "$(command curl -s -o /dev/null --cacert $CA --tls-max 1.1 https://$C/ && echo aceptado || echo rechazado)"
+check "TLS 1.1 o más viejo no se acepta" rechazado "$(command curl -s -o /dev/null --ssl-no-revoke --cacert $CA --tls-max 1.1 https://$C/ && echo aceptado || echo rechazado)"
 check "la central manda HSTS (el navegador recuerda usar HTTPS)" "si" "$(curl -s -I https://$C/ | grep -qi 'strict-transport-security' && echo si || echo no)"
 
 echo "--- El HTTP redirige a HTTPS"

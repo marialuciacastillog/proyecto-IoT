@@ -16,7 +16,10 @@ CA=/tmp/proyecto-ca.crt
 terraform -chdir=infrastructure output -raw ca_certificate > $CA
 # Cada vez que el script usa curl, curl revisa el certificado con la CA del proyecto.
 # (Para bajar de S3 se usa "command curl", que usa las CA normales de internet.)
-curl() { command curl --cacert "$CA" "$@"; }
+# --ssl-no-revoke: en Windows, curl le pregunta a Windows si el certificado fue revocado, y como nuestra CA
+# no publica lista de revocados, Windows no puede responder y curl corta la conexión. Con esto solo se
+# salta esa pregunta: el certificado se sigue revisando contra la CA. En Linux y Mac no cambia nada.
+curl() { command curl --ssl-no-revoke --cacert "$CA" "$@"; }
 
 # APIs de la central, por su front HTTPS (/svc/...)
 ID=https://$C/svc/identity
